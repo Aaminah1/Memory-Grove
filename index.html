@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Memory Grove</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- Site Header -->
+  <header class="site-header">
+    <h1>Memory Grove</h1>
+    <nav>
+      <button id="tab-ask" class="tab active" aria-controls="ghostSection">Ask the Ghost</button>
+      <button id="tab-grove" class="tab" aria-controls="groveSection">Your Grove</button>
+    </nav>
+  </header>
+
+  <!-- Main Content -->
+  <main>
+    <!-- Ghost Section -->
+    <section id="ghostSection" class="panel">
+      <h2>Ask the Ghost</h2>
+      <form id="askForm">
+        <textarea id="question" placeholder="Type your question..."></textarea>
+        <button id="askBtn" type="submit">Ask</button>
+      </form>
+
+      <!-- Tombstone placeholder -->
+      <div id="tombstoneSection" class="tombstone" hidden>
+        <h3>Ghost Memory</h3>
+        <p id="tombstoneText"></p>
+
+        <!-- Classification -->
+        <div class="classify">
+          <p>How does this feel?</p>
+          <button data-class="green">Resonates</button>
+          <button data-class="yellow">Partially right</button>
+          <button data-class="red">Wrong / harmful</button>
+          <textarea id="note" placeholder="Add your reflection (optional)"></textarea>
+          <button id="plantBtn">Plant Seed</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Grove Section -->
+    <section id="groveSection" class="panel" hidden>
+      <h2>Your Grove</h2>
+      <ul id="seedList"></ul>
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <small>Prototype for reflection. Seeds are stored locally only.</small>
+  </footer>
+
+  <!-- Script -->
+  <script src="app.js"></script>
+</body>
+</html>

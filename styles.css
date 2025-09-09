@@ -1,0 +1,88 @@
+/* Basic reset */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: system-ui, sans-serif;
+  background: #0e0f14;
+  color: #e6e6e6;
+  line-height: 1.5;
+}
+
+/* Header */
+.site-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background: #16171d;
+  border-bottom: 1px solid #2a2b33;
+}
+.site-header h1 { font-size: 1.2rem; }
+nav { display: flex; gap: 0.5rem; }
+.tab {
+  background: #22242e;
+  color: #e6e6e6;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.tab.active { background: #3b3f52; }
+
+/* Main panels */
+main { padding: 1rem; max-width: 800px; margin: auto; }
+.panel { margin-top: 1rem; }
+
+/* Form */
+textarea {
+  width: 100%;
+  min-height: 60px;
+  padding: 0.5rem;
+  background: #10121a;
+  border: 1px solid #2a2b33;
+  border-radius: 8px;
+  color: #fff;
+}
+button {
+  background: #2a2d3a;
+  border: none;
+  color: #e6e6e6;
+  padding: 0.5rem 1rem;
+  margin-top: 0.5rem;
+  border-radius: 8px;
+  cursor: pointer;
+}
+button:hover { background: #3a3e52; }
+
+/* Tombstone */
+.tombstone {
+  margin-top: 1rem;
+  padding: 1rem;
+  border-radius: 12px;
+  background: #16171d;
+  border: 1px solid #2a2b33;
+}
+.classify { margin-top: 1rem; }
+.classify button { margin-right: 0.5rem; }
+
+/* Grove seeds */
+#seedList {
+  list-style: none;
+  margin-top: 1rem;
+  display: grid;
+  gap: 0.5rem;
+}
+.seed {
+  background: #16171d;
+  border: 1px solid #2a2b33;
+  padding: 0.75rem;
+  border-radius: 10px;
+}
+
+/* Footer */
+.site-footer {
+  margin-top: 2rem;
+  padding: 1rem;
+  text-align: center;
+  color: #a0a0a0;
+  font-size: 0.9rem;
+}
