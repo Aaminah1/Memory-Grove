@@ -1,4 +1,7 @@
-// Basic scaffold — no API yet
+// ---------- CONFIG ----------
+const API_URL = 'https://<your-vercel-project>.vercel.app/api/ghost'; // <-- paste your real URL
+
+// ---------- APP ----------
 window.addEventListener('DOMContentLoaded', () => {
   const tabAsk = document.getElementById('tab-ask');
   const tabGrove = document.getElementById('tab-grove');
@@ -10,7 +13,7 @@ window.addEventListener('DOMContentLoaded', () => {
   const plantBtn = document.getElementById('plantBtn');
   const seedList = document.getElementById('seedList');
 
-  // Switch tabs
+  // Tabs
   tabAsk.addEventListener('click', () => {
     tabAsk.classList.add('active');
     tabGrove.classList.remove('active');
@@ -25,24 +28,30 @@ window.addEventListener('DOMContentLoaded', () => {
     renderSeeds();
   });
 
-  // Mock ask ghost
-  askForm.addEventListener('submit', (e) => {
+  // Ask the ghost (real API call)
+  askForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const q = document.getElementById('question').value.trim();
     if (!q) return;
-    tombstoneText.textContent = `The ghost whispers: "${q}" (mock reply)`;
+
+    tombstone.hidden = true;
+    tombstoneText.textContent = 'Listening for a memory…';
+
+    try {
+      const text = await getGhostMemory(q);
+      tombstoneText.textContent = text;
+    } catch (err) {
+      console.error(err);
+      tombstoneText.textContent = 'The ghost is silent for now…';
+    }
     tombstone.hidden = false;
   });
 
-  // Save mock seeds in localStorage
+  // Save seeds locally
   plantBtn.addEventListener('click', () => {
     const note = document.getElementById('note').value.trim();
     const ghost = tombstoneText.textContent;
-    const seed = {
-      id: Date.now(),
-      ghost,
-      note
-    };
+    const seed = { id: Date.now(), ghost, note };
     const seeds = loadSeeds();
     seeds.unshift(seed);
     localStorage.setItem('memorySeeds', JSON.stringify(seeds));
@@ -50,11 +59,12 @@ window.addEventListener('DOMContentLoaded', () => {
     alert('Seed planted 🌱');
   });
 
+  renderSeeds();
+
   function loadSeeds() {
     try { return JSON.parse(localStorage.getItem('memorySeeds')) || []; }
     catch { return []; }
   }
-
   function renderSeeds() {
     seedList.innerHTML = '';
     const seeds = loadSeeds();
@@ -65,9 +75,25 @@ window.addEventListener('DOMContentLoaded', () => {
     for (const s of seeds) {
       const li = document.createElement('li');
       li.className = 'seed';
-      li.innerHTML = `<div><strong>Memory:</strong> ${s.ghost}</div>
-                      <div><em>Note:</em> ${s.note || '(none)'}</div>`;
+      li.innerHTML = `<div><strong>Memory:</strong> ${escapeHTML(s.ghost)}</div>
+                      <div><em>Note:</em> ${escapeHTML(s.note || '(none)')}</div>`;
       seedList.appendChild(li);
     }
   }
 });
+
+// Call your Vercel API
+async function getGhostMemory(question) {
+  const res = await fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ question })
+  });
+  if (!res.ok) throw new Error('Ghost API failed ' + res.status);
+  const data = await res.json();
+  return data.text;
+}
+
+function escapeHTML(s='') {
+  return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
