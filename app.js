@@ -1,5 +1,5 @@
 // ---------- CONFIG ----------
-const API_URL = 'https://<your-vercel-project>.vercel.app/api/ghost'; // <-- paste your real URL
+const API_URL = 'https://memory-grove-api.vercel.app/api/ghost';
 
 // ---------- APP ----------
 window.addEventListener('DOMContentLoaded', () => {
