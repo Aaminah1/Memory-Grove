@@ -89,10 +89,17 @@ async function getGhostMemory(question) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ question })
   });
-  if (!res.ok) throw new Error('Ghost API failed ' + res.status);
-  const data = await res.json();
+
+  let data = null;
+  try { data = await res.json(); } catch {}
+
+  if (!res.ok) {
+    const msg = (data && data.error) ? data.error : `HTTP ${res.status}`;
+    throw new Error(msg);
+  }
   return data.text;
 }
+
 
 function escapeHTML(s='') {
   return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
