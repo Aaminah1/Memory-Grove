@@ -1,9 +1,7 @@
 // ---------- CONFIG ----------
 const API_URL = 'https://memory-grove-api.vercel.app/api/ghost';
-const CANDIDATES = [
-  'https://memory-grove-api.vercel.app/api/ghost',
-  'https://memory-grove-api.vercel.app/ghost'
-];
+
+
 // ---------- APP ----------
 window.addEventListener('DOMContentLoaded', () => {
   const tabAsk = document.getElementById('tab-ask');
@@ -87,20 +85,20 @@ window.addEventListener('DOMContentLoaded', () => {
 
 // Call your Vercel API
 async function getGhostMemory(question) {
-  let lastErr;
-  for (const url of CANDIDATES) {
-    try {
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question })
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-      return data.text;
-    } catch (e) { lastErr = e; }
+  const res = await fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ question })
+  });
+
+  let data = null;
+  try { data = await res.json(); } catch {}
+
+  if (!res.ok) {
+    const msg = (data && data.error) ? data.error : `HTTP ${res.status}`;
+    throw new Error(msg);
   }
-  throw lastErr || new Error('No ghost endpoint found');
+  return data.text;
 }
 
 
