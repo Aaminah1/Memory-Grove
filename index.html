@@ -36,54 +36,56 @@
     </div>
 
     <!-- ASK -->
-    <section id="ghostSection" class="panel">
-      <h2>Encounter the Ghost</h2>
+<section id="ghostSection" class="panel">
+  <h2>Encounter the Ghost</h2>
 
-      <form id="askForm" class="ask-row" aria-describedby="askHelp">
-        <textarea id="question" placeholder="Ask a culturally grounded question…" required minlength="3"></textarea>
-        <button id="askBtn" type="submit" disabled>Ask</button>
-      </form>
-      <p id="askHelp" class="help">
-        Tip: ask about practice, story, or meaning (e.g. “What does <em>ubuntu</em> mean in everyday life?”).
-      </p>
+  <form id="askForm" class="ask-row" aria-describedby="askHelp">
+    <textarea id="question" placeholder="Ask a culturally grounded question…" required minlength="3"></textarea>
+    <button id="askBtn" type="submit" disabled>Ask</button>
+  </form>
+  <p id="askHelp" class="help">
+    Tip: ask about practice, story, or meaning (e.g. “What does <em>ubuntu</em> mean in everyday life?”).
+  </p>
 
-      <!-- Tombstone (ghost reply) -->
-      <div id="tombstoneSection" class="tombstone" hidden>
-        <div class="grave-top">
-          <div class="grave-icon" aria-hidden="true">🪦</div>
-          <div class="grave-inscription">Ghost Memory</div>
-        </div>
+  <!-- Tombstone (ghost reply) -->
+  <div id="tombstoneSection" class="tombstone" hidden>
+    <div class="grave-top">
+      <div class="grave-icon" aria-hidden="true">🪦</div>
+      <div class="grave-inscription">Ghost Memory</div>
+    </div>
 
-        <!-- loading skeleton -->
-        <div id="skeleton" class="skeleton" hidden>
-          <div class="shimmer line"></div>
-          <div class="shimmer line"></div>
-          <div class="shimmer line short"></div>
-        </div>
+    <!-- loading skeleton -->
+    <div id="skeleton" class="skeleton" hidden>
+      <div class="shimmer line"></div>
+      <div class="shimmer line"></div>
+      <div class="shimmer line short"></div>
+    </div>
 
-        <!-- errors appear here -->
-        <div id="errorBox" class="error" hidden role="alert"></div>
+    <!-- errors appear here -->
+    <div id="errorBox" class="error" hidden role="alert"></div>
 
-        <p id="tombstoneText" aria-live="polite"></p>
+    <p id="tombstoneText" aria-live="polite"></p>
 
-        <div class="classify">
-          <p class="help">Choose how it feels:</p>
-          <div class="classify-row" role="group" aria-label="Classify the ghost reply">
-            <button type="button" data-class="green" title="Resonates (agreement)">Resonates</button>
-            <button type="button" data-class="yellow" title="Partial / nuance">Partially right</button>
-            <button type="button" data-class="red" title="Counter-memory / reject">Wrong / harmful</button>
-          </div>
-
-          <label class="visually-hidden" for="note">Your note</label>
-          <textarea id="note" placeholder="Add a correction, nuance, or counter-memory (optional)"></textarea>
-
-          <div class="action-bar">
-            <span class="chip" id="selectedChip" hidden>—</span>
-            <button id="plantBtn" type="button" disabled>Plant Seed</button>
-          </div>
-        </div>
+    <!-- classification (hidden until text finishes appearing) -->
+    <div class="classify" id="classifyBox" hidden>
+      <p class="help">Choose how it feels:</p>
+      <div class="classify-row" role="group" aria-label="Classify the ghost reply">
+        <button type="button" data-class="green"  title="Resonates (agreement)">Resonates</button>
+        <button type="button" data-class="yellow" title="Partial / nuance">Partially right</button>
+        <button type="button" data-class="red"    title="Counter-memory / reject">Wrong / harmful</button>
       </div>
-    </section>
+
+      <label class="visually-hidden" for="note">Your note</label>
+      <textarea id="note" placeholder="Add a correction, nuance, or counter-memory (optional)"></textarea>
+
+      <div class="action-bar">
+        <span class="chip" id="selectedChip" hidden>—</span>
+        <button id="plantBtn" type="button" disabled>Plant Seed</button>
+      </div>
+    </div>
+  </div>
+</section>
+
 
     <!-- GROVE -->
 <section id="groveSection" class="panel" hidden>

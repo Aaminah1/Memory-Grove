@@ -20,6 +20,52 @@ function setStep(active) {
 function escapeHTML(s='') {
   return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
+// Wait until #tombstoneText has *finished* appearing (handles CSS anim/transition OR typewriter changes)
+function revealClassifyAfterText(tombTextEl, classifyBoxEl) {
+  // always start hidden
+  classifyBoxEl.hidden = true;
+
+  const show = () => {
+    if (!classifyBoxEl.hidden) return; // already shown
+    // next frame to ensure final paint is done
+    requestAnimationFrame(() => {
+      classifyBoxEl.hidden = false;
+      setStep('classify');
+      document.querySelector('.classify-row button')?.focus();
+    });
+  };
+
+  // If the element is being animated via CSS:
+  const cs = getComputedStyle(tombTextEl);
+  const hasAnim = cs.animationName !== 'none' && parseFloat(cs.animationDuration) > 0;
+  const hasTrans = parseFloat(cs.transitionDuration) > 0;
+
+  let done = false;
+  const finish = () => { if (!done) { done = true; cleanup(); show(); } };
+
+  // Mutation-based watcher: if text keeps changing (typewriter), wait until it stabilizes.
+  let stableTimer = null;
+  const OBSERVE_STABLE_MS = 160; // time with no changes = "finished"
+  const mo = new MutationObserver(() => {
+    clearTimeout(stableTimer);
+    stableTimer = setTimeout(finish, OBSERVE_STABLE_MS);
+  });
+  mo.observe(tombTextEl, { characterData: true, subtree: true, childList: true });
+
+  // CSS hooks
+  const onEnd = () => finish();
+  if (hasAnim) tombTextEl.addEventListener('animationend', onEnd, { once: true });
+  if (hasTrans) tombTextEl.addEventListener('transitionend', onEnd, { once: true });
+
+  // Safety: if none of the above trigger, show next frame
+  const safety = setTimeout(finish, 0);
+
+  function cleanup() {
+    try { mo.disconnect(); } catch {}
+    clearTimeout(stableTimer);
+    clearTimeout(safety);
+  }
+}
 
 // ---------- APP ----------
 window.addEventListener('DOMContentLoaded', () => {
@@ -59,10 +105,11 @@ window.addEventListener('DOMContentLoaded', () => {
   const skeleton  = document.getElementById('skeleton');
   const errorBox  = document.getElementById('errorBox');
 
+  const classifyBox = document.getElementById('classifyBox'); // <-- the whole "Choose how it feels" block
+
   const plantBtn  = document.getElementById('plantBtn');
   const selectedChip = document.getElementById('selectedChip');
   const tabGroveBtn = document.getElementById('tab-grove');
-  const groveBadge  = document.getElementById('groveBadge');
 
   // Enable/disable Ask based on input length
   questionEl.addEventListener('input', () => {
@@ -104,6 +151,9 @@ window.addEventListener('DOMContentLoaded', () => {
     errorBox.hidden = true; errorBox.textContent = '';
     skeleton.hidden = false;
 
+    // hide classification while loading
+    classifyBox.hidden = true;
+
     // reset classification for this reply
     selectedClass = null;
     plantBtn.disabled = true;
@@ -114,15 +164,16 @@ window.addEventListener('DOMContentLoaded', () => {
       const text = await getGhostMemory(q);
       tombText.textContent = text || 'The ghost is silent…';
       skeleton.hidden = true;
-      // focus first class button for keyboard flow
-      document.querySelector('.classify-row button')?.focus();
-      setStep('classify');
+
+      // Reveal the classify block only once the text is fully done showing
+      revealClassifyAfterText(tombText, classifyBox);
     } catch (err) {
       skeleton.hidden = true;
       const msg = mapErrorMessage(err?.message || String(err));
       errorBox.textContent = msg;
       errorBox.hidden = false;
       tombText.textContent = 'The ghost is silent for now…';
+      classifyBox.hidden = true; // keep hidden on error
       showToast('Could not get a reply.');
     } finally {
       askBtn.disabled = false; askBtn.textContent = 'Ask';
@@ -177,36 +228,45 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  document.getElementById('exportBtn').addEventListener('click', () => {
-    const blob = new Blob([localStorage.getItem('memorySeeds') || '[]'], { type:'application/json' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `memory-grove-seeds-${Date.now()}.json`;
-    a.click();
-    URL.revokeObjectURL(a.href);
-    showToast('Exported seeds');
-  });
+  const exportBtn = document.getElementById('exportBtn');
+  if (exportBtn) {
+    exportBtn.addEventListener('click', () => {
+      const blob = new Blob([localStorage.getItem('memorySeeds') || '[]'], { type:'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `memory-grove-seeds-${Date.now()}.json`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      showToast('Exported seeds');
+    });
+  }
+
   const importBtn = document.getElementById('importBtn');
   const importFile= document.getElementById('importFile');
-  importBtn.addEventListener('click', () => importFile.click());
-  importFile.addEventListener('change', async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    try {
-      const text = await file.text();
-      const arr = JSON.parse(text);
-      if (!Array.isArray(arr)) throw new Error('Bad file');
-      localStorage.setItem('memorySeeds', JSON.stringify(arr));
-      renderSeeds();
-      showToast('Imported seeds');
-    } catch {
-      showToast('Invalid seeds file');
-    } finally { e.target.value = ''; }
-  });
+  if (importBtn && importFile) {
+    importBtn.addEventListener('click', () => importFile.click());
+    importFile.addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        const arr = JSON.parse(text);
+        if (!Array.isArray(arr)) throw new Error('Bad file');
+        localStorage.setItem('memorySeeds', JSON.stringify(arr));
+        renderSeeds();
+        showToast('Imported seeds');
+      } catch {
+        showToast('Invalid seeds file');
+      } finally { e.target.value = ''; }
+    });
+  }
 
   // Init
   renderSeeds();
   updateGroveBadge();
+
+  // If grove is visible on first load, render stones immediately
+  if (!document.getElementById('groveSection').hidden) renderStones();
 });
 
 // ---------- API ----------
@@ -234,51 +294,10 @@ function loadSeeds() {
   catch { return []; }
 }
 function renderSeeds() {
-  const seedList = document.getElementById('seedList');
-  const seedCount = document.getElementById('seedCount');
-  const seeds = loadSeeds();
-  const filtered = activeFilter === 'all' ? seeds : seeds.filter(s => (s.class || 'yellow') === activeFilter);
-
-  seedList.innerHTML = '';
-  seedCount.textContent = `${seeds.length} ${seeds.length === 1 ? 'seed' : 'seeds'}`;
-
-  if (!filtered.length) {
-    seedList.innerHTML = `
-      <li class="seed">
-        <div class="seed-head"><span class="seed-emoji">🌫️</span><div class="seed-title">Empty path</div></div>
-        <p>No seeds here yet.</p>
-      </li>`;
-    updateGroveBadge();
-    return;
-  }
-  for (const s of filtered) {
-    const li = document.createElement('li');
-    const cls = s.class || 'yellow';
-    const { emoji, title } = iconForClass(cls);
-    li.className = `seed seed-${cls}`;
-    li.innerHTML = `
-      <div class="seed-head">
-        <span class="seed-emoji">${emoji}</span>
-        <div class="seed-title">${escapeHTML(title)}</div>
-      </div>
-      <p><strong>Memory:</strong> ${escapeHTML(s.ghost)}</p>
-      <p><em>Note:</em> ${escapeHTML(s.note || '(none)')}</p>
-      <small>${new Date(s.at).toLocaleString()}</small>
-    `;
-    seedList.appendChild(li);
-  }
-  updateGroveBadge();
-}
-
-// ---------- SEEDS ----------
-function loadSeeds() {
-  try { return JSON.parse(localStorage.getItem('memorySeeds')) || []; }
-  catch { return []; }
-}
-
-function renderSeeds() {
   const seedList  = document.getElementById('seedList');
   const seedCount = document.getElementById('seedCount');
+  if (!seedList || !seedCount) return;
+
   const seeds = loadSeeds();
   const filtered = activeFilter === 'all'
     ? seeds
@@ -319,8 +338,6 @@ function renderSeeds() {
 }
 
 // ---------- GROVE RENDERER (tombstones in rows) ----------
-// (Do NOT redeclare activeFilter or loadSeeds here)
-
 function normalizeSeed(raw) {
   return {
     id: raw.id || Date.now(),
@@ -495,42 +512,6 @@ function updateGroveBadge() {
   }
 }
 
-function mapErrorMessage(raw='') {
-  const s = raw.toLowerCase();
-  if (s.includes('429')) return 'Rate limit reached. Please try again in a moment.';
-  if (s.includes('401') || s.includes('unauthorized') || s.includes('invalid api key')) return 'Server auth failed (API key).';
-  if (s.includes('openai_api_key not set')) return 'Server missing API key.';
-  if (s.includes('failed to fetch') || s.includes('network')) return 'Network error. Check your connection.';
-  if (s.includes('504') || s.includes('timeout')) return 'Upstream timeout. Please retry.';
-  if (s.includes('502')) return 'Upstream failure (bad gateway).';
-  if (s.includes('404')) return 'The ghost endpoint was not found.';
-  return 'An unexpected error occurred.';
-}
-
-// If grove is visible on first load, render stones immediately
-if (!document.getElementById('groveSection').hidden) renderStones();
-
-
-
-function iconForClass(c) {
-  if (c === 'green')  return { emoji:'🌱', title:'Resonates' };
-  if (c === 'red')    return { emoji:'🪦', title:'Counter-memory' };
-  return                { emoji:'🌿', title:'Partial / Nuanced' };
-}
-function updateGroveBadge() {
-  let count = 0;
-  try { count = (JSON.parse(localStorage.getItem('memorySeeds')) || []).length; }
-  catch { count = 0; }
-  const badge = document.getElementById('groveBadge');
-  if (count > 0) {
-    badge.textContent = String(count);
-    badge.hidden = false;
-  } else {
-    badge.hidden = true;
-  }
-}
-
-// ---------- Error mapping ----------
 function mapErrorMessage(raw='') {
   const s = raw.toLowerCase();
   if (s.includes('429')) return 'Rate limit reached. Please try again in a moment.';

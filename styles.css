@@ -253,3 +253,6 @@ button[disabled] { opacity:.6; cursor:not-allowed; }
 .stone-halo.green { stroke: #5ef08a; }
 .stone-halo.yellow{ stroke: #ffd76a; }
 .stone-halo.red   { stroke: #f96b6b; }
+#classifyBox[hidden]{display:none;}
+#classifyBox{opacity:0;transition:opacity .25s ease;}
+#classifyBox:not([hidden]){opacity:1;}
