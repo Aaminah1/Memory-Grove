@@ -242,17 +242,15 @@ button[disabled] { opacity:.6; cursor:not-allowed; }
 
 /* stone hover + labels */
 .stone:hover { filter: brightness(1.05); }
+/* Make labels readable on dark bg */
 .stone-label {
   font-size: 12px;
-  fill: #0f1117;
-  opacity: .85;
-  pointer-events: none;
+  fill: rgba(255,255,255,.85);
 }
+.stone-halo.green  { stroke: #7bd389; }
+.stone-halo.yellow { stroke: #e1d97a; }
+.stone-halo.red    { stroke: #ee8a8a; }
 
-/* subtle class tint ring (we'll draw an outer halo) */
-.stone-halo.green { stroke: #5ef08a; }
-.stone-halo.yellow{ stroke: #ffd76a; }
-.stone-halo.red   { stroke: #f96b6b; }
 #classifyBox[hidden]{display:none;}
 #classifyBox{opacity:0;transition:opacity .25s ease;}
 #classifyBox:not([hidden]){opacity:1;}

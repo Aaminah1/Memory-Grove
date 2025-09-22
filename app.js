@@ -433,47 +433,19 @@ function drawStone(parent, x, y, w, h, r, seed) {
   g.setAttribute('tabindex','0');
   g.style.cursor = 'pointer';
 
-  // halo ring tinted by class
-  const halo = document.createElementNS('http://www.w3.org/2000/svg','rect');
-  halo.setAttribute('x', x-4);
-  halo.setAttribute('y', y-4);
-  halo.setAttribute('width', w+8);
-  halo.setAttribute('height', h+12);
-  halo.setAttribute('rx', r+6);
-  halo.setAttribute('ry', r+6);
-  halo.setAttribute('fill', 'none');
-  halo.setAttribute('stroke-width', '2');
-  halo.setAttribute('opacity', '.35');
-  halo.setAttribute('class', `stone-halo ${seed.class}`);
-  g.appendChild(halo);
+  // Use an <image> element for the tombstone graphic
+  const img = document.createElementNS('http://www.w3.org/2000/svg','image');
+  img.setAttribute('href', 'tombstone.png'); // <-- your uploaded file in the same folder
+  img.setAttribute('x', x);
+  img.setAttribute('y', y);
+  img.setAttribute('width', w);
+  img.setAttribute('height', h);
+  g.appendChild(img);
 
-  // base stone
-  const rect = document.createElementNS('http://www.w3.org/2000/svg','rect');
-  rect.setAttribute('x', x);
-  rect.setAttribute('y', y+8);
-  rect.setAttribute('width', w);
-  rect.setAttribute('height', h);
-  rect.setAttribute('rx', r);
-  rect.setAttribute('ry', r);
-  rect.setAttribute('fill', 'url(#stoneGrad)');
-  rect.setAttribute('filter', 'url(#stoneShadow)');
-  g.appendChild(rect);
-
-  // engraved notch
-  const line = document.createElementNS('http://www.w3.org/2000/svg','line');
-  line.setAttribute('x1', x + w*0.2);
-  line.setAttribute('x2', x + w*0.8);
-  line.setAttribute('y1', y + Math.max(24, r+10));
-  line.setAttribute('y2', y + Math.max(24, r+10));
-  line.setAttribute('stroke', '#5b5f68');
-  line.setAttribute('stroke-width', '2');
-  line.setAttribute('opacity', '.8');
-  g.appendChild(line);
-
-  // subtle label
+  // optional: add a label on top of the stone
   const label = document.createElementNS('http://www.w3.org/2000/svg','text');
   label.setAttribute('x', x + w/2);
-  label.setAttribute('y', y + Math.max(44, r+28));
+  label.setAttribute('y', y + h/2);
   label.setAttribute('text-anchor','middle');
   label.setAttribute('class','stone-label');
   label.textContent = (seed.ghost || '—').slice(0, 28);
@@ -485,6 +457,7 @@ function drawStone(parent, x, y, w, h, r, seed) {
 
   parent.appendChild(g);
 }
+
 
 // reflow stones on resize
 window.addEventListener('resize', debounce(renderStones, 200));
