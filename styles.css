@@ -42,6 +42,9 @@ main { padding:1rem; max-width:900px; margin:auto; }
 .panel { margin-top:1rem; }
 .help { color:#aab0bb; font-size:.92rem; margin-top:.35rem; }
 
+/* Make the GROVE panel wider than the Ask panel */
+#groveSection.panel { max-width: min(1400px, 96vw); margin-inline:auto; }
+
 /* Stepper */
 .stepper { display:flex; align-items:center; gap:.35rem; color:#9aa1ad; font-size:.9rem; }
 .stepper .step.active { color:#e6e6e6; font-weight:600; }
@@ -72,7 +75,7 @@ button:hover { background:#3a3e52; }
 button:active { transform: translateY(1px); }
 button[disabled] { opacity:.6; cursor:not-allowed; }
 
-/* Tombstone */
+/* Tombstone (reply) */
 .tombstone {
   margin-top:1rem; padding:1rem; border-radius:18px;
   background:#14151c; border:1px solid #2a2b33; position:relative; overflow:hidden;
@@ -123,42 +126,32 @@ button[disabled] { opacity:.6; cursor:not-allowed; }
 .action-bar { display:flex; align-items:center; gap:.5rem; margin-top:.6rem; position:sticky; bottom:.5rem; }
 .chip { background:#1b1d26; border:1px solid #2a2b33; padding:.25rem .5rem; border-radius:999px; font-size:.85rem; color:#cfd2d8; }
 
-/* Grove */
-.grove-toolbar { display:flex; align-items:center; gap:.5rem; margin-top:.25rem; }
-.grove-toolbar .spacer { flex:1; }
-.ghost-btn { background:#22242e; border:1px solid #2a2b33; padding:.35rem .7rem; border-radius:8px; }
-.filters { display:flex; gap:.35rem; }
-.filter-btn { background:#1b1c24; border:1px solid #2a2b33; padding:.35rem .7rem; border-radius:8px; }
-.filter-btn[aria-pressed="true"] { outline:2px solid #8aa0ff; }
-
-.grove-grid {
-  list-style:none; margin-top:1rem;
-  display:grid; gap:.75rem; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+/* ------ GROVE (graveyard area) ------ */
+.grove-toolbar { display:flex; align-items:center; gap:.5rem; margin:.5rem 0; }
+.grove-toolbar .filter-btn {
+  background:#22242e; border:1px solid #2a2b33; padding:.35rem .7rem; border-radius:999px; font-size:.9rem; cursor:pointer;
 }
-.seed {
-  background:#13141a; border:1px solid #2a2b33; border-radius:14px; padding:.85rem 1rem;
-  position:relative; overflow:hidden;
-}
-.seed::before { content:''; position:absolute; left:0; top:0; bottom:0; width:6px; }
-.seed-green::before  { background:#3fb950; }
-.seed-yellow::before { background:#c9a806; }
-.seed-red::before    { background:#e5534b; }
-.seed-head { display:flex; align-items:center; gap:.6rem; margin-bottom:.35rem; }
-.seed-emoji { font-size:1.2rem; }
-.seed-title { font-weight:600; color:#dcdcdc; }
-.seed p { font-size:.92rem; color:#bfbfbf; }
-.seed small { display:block; margin-top:.45rem; color:#8d8d8d; }
+.grove-toolbar .filter-btn[aria-pressed="true"] { background:#3b3f52; }
 
-/* Toast */
-.toast {
-  position:fixed; left:50%; bottom:1rem; transform:translateX(-50%) translateY(20px);
-  background:#0f1117; border:1px solid #2a2b33; color:#e6e6e6;
-  padding:.55rem .8rem; border-radius:10px; opacity:0; pointer-events:none;
-  transition: transform .2s ease, opacity .2s ease;
-}
-.toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
 
-/* A11y */
+
+
+
+/* Hint under the grove */
+.hint { color:#9aa0aa; margin-top:.5rem; font-size:.9rem; }
+
+/* Stones/labels/halos */
+.stone:hover { filter: brightness(1.05); }
+.stone-halo.green  { stroke:#7bd389; }
+.stone-halo.yellow { stroke:#e1d97a; }
+.stone-halo.red    { stroke:#ee8a8a; }
+
+/* Type-to-reveal classify */
+#classifyBox[hidden]{display:none;}
+#classifyBox{opacity:0;transition:opacity .25s ease;}
+#classifyBox:not([hidden]){opacity:1;}
+
+/* A11y utility */
 .visually-hidden {
   position:absolute !important; height:1px; width:1px; overflow:hidden;
   clip: rect(1px,1px,1px,1px); white-space:nowrap;
@@ -167,90 +160,38 @@ button[disabled] { opacity:.6; cursor:not-allowed; }
 /* Mobile tweaks */
 @media (max-width: 640px) {
   .ask-row { grid-template-columns: 1fr; }
-  button, .ghost-btn { padding:.6rem .85rem; }
+  button { padding:.6rem .85rem; }
+  #groveSection.panel { max-width: 100vw; }
+  .grove-frame { height: calc(100vh - 260px); min-height: 420px; }
 }
-/* Graveyard scene */
-.graveyard-wrap { position:relative; margin-top: .75rem; border-radius:18px; overflow:hidden; border:1px solid #2a2b33; background: #0c0f16; }
-.grove-canvas { display:block; width:100%; height:62vh; min-height:420px; background: radial-gradient(ellipse at 50% 10%, #141a24, #0c0f16 65%); }
-
-/* Hills (parallax layers) */
-.hill { position:absolute; left:0; right:0; height:28%; background-repeat:repeat-x; background-size: 1200px 100%; opacity:.35; filter: blur(0.4px); }
-.layer-1 { bottom:0;   background-image: linear-gradient(#131722, #0e1119); clip-path: polygon(0 45%, 20% 35%, 40% 50%, 60% 30%, 80% 44%, 100% 36%, 100% 100%, 0 100%); }
-.layer-2 { bottom:10%; background-image: linear-gradient(#151927, #0f1320); clip-path: polygon(0 55%, 18% 42%, 38% 58%, 58% 40%, 78% 54%, 100% 46%, 100% 100%, 0 100%); opacity:.25; }
-.layer-3 { bottom:20%; background-image: linear-gradient(#171c2b, #101425); clip-path: polygon(0 65%, 20% 55%, 40% 68%, 60% 50%, 80% 64%, 100% 56%, 100% 100%, 0 100%); opacity:.18; }
-
-/* Moon & fog */
-.moon { position:absolute; width:90px; height:90px; top:6%; left:8%; border-radius:50%;
-  background: radial-gradient(circle at 35% 35%, #fff, #cfd8ff 40%, #a1a8c6 60%, transparent 70%);
-  box-shadow: 0 0 60px rgba(180,190,255,.15);
+/* Make ONLY the Grove section full-bleed across the page */
+#groveSection.panel {
+  width: 100vw;
+  max-width: 100vw;
+  margin-left: 50%;
+  transform: translateX(-50%);
+  padding-inline: clamp(12px, 4vw, 32px);
 }
-.fog { position:absolute; left:0; right:0; bottom:12%; height:120px; background:
-  radial-gradient(ellipse at 20% 50%, rgba(255,255,255,.03), transparent 60%),
-  radial-gradient(ellipse at 60% 50%, rgba(255,255,255,.03), transparent 60%),
-  radial-gradient(ellipse at 85% 50%, rgba(255,255,255,.02), transparent 60%);
-  filter: blur(6px); mix-blend-mode: screen; pointer-events:none;
-}
-.fog-a { animation: drift 26s linear infinite; }
-.fog-b { bottom:6%; opacity:.7; animation: drift 34s linear infinite reverse; }
-@keyframes drift { 0% { transform: translateX(-4%); } 100% { transform: translateX(4%); } }
 
-/* Stones hover/selection */
-.stone { cursor:pointer; }
-.stone:hover .stone-body { filter:url(#noise); }
-.stone .stone-body { transition: transform .2s ease; }
-.stone:hover .stone-body { transform: translateY(-2px); }
-
-/* Engraved text */
-.stone text { font-family: ui-serif, Georgia, serif; font-variant: small-caps; fill:#e6e6e6; filter:url(#engrave); }
-
-/* Growth layers */
-.growth-green { filter: drop-shadow(0 0 6px rgba(147, 244, 183, .24)); }
-.growth-yellow { filter: drop-shadow(0 0 6px rgba(255, 232, 154, .22)); }
-.growth-red { filter: drop-shadow(0 0 6px rgba(229, 83, 75, .22)); }
-
-/* Utility hidden list (kept for SR/debug) */
-.visually-hidden {
-  position:absolute !important; height:1px; width:1px; overflow:hidden;
-  clip: rect(1px,1px,1px,1px); white-space:nowrap;
-}
+/* Big responsive graveyard area */
 .grove-frame {
-  margin-top: 0.75rem;
+  margin-top: .75rem;
   background: #0f1117;
   border: 1px solid #2a2b33;
   border-radius: 14px;
   overflow: hidden;
+
+  /* fill (almost) the whole viewport height */
+  width: 100%;
+  height: calc(100vh - 160px); /* tweak this number if header/footer are taller */
+  min-height: 720px;           /* make it feel grand */
 }
 
-#groveCanvas { width: 100%; height: clamp(360px, 60vh, 720px); display: block; }
+/* Let SVG stretch to the frame */
+#groveCanvas { width: 100%; height: 100%; display: block; }
 
-.grove-toolbar {
-  display: flex;
-  gap: .5rem;
-  margin: .5rem 0;
-}
-.grove-toolbar .filter-btn {
-  background: #22242e;
-  border: 1px solid #2a2b33;
-  padding: .35rem .7rem;
-  border-radius: 999px;
-  font-size: .9rem;
-  cursor: pointer;
-}
-.grove-toolbar .filter-btn[aria-pressed="true"] { background: #3b3f52; }
+/* Labels (if you kept them) */
+.stone-label { font-size: 12px; fill: rgba(255,255,255,.88); }
 
-.hint { color:#9aa0aa; margin-top:.5rem; font-size:.9rem; }
-
-/* stone hover + labels */
-.stone:hover { filter: brightness(1.05); }
-/* Make labels readable on dark bg */
-.stone-label {
-  font-size: 12px;
-  fill: rgba(255,255,255,.85);
-}
-.stone-halo.green  { stroke: #7bd389; }
-.stone-halo.yellow { stroke: #e1d97a; }
-.stone-halo.red    { stroke: #ee8a8a; }
-
-#classifyBox[hidden]{display:none;}
-#classifyBox{opacity:0;transition:opacity .25s ease;}
-#classifyBox:not([hidden]){opacity:1;}
+/* If you still have halo elements and want them invisible anyway */
+.stone-halo { opacity: 0 !important; }

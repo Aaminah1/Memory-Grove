@@ -338,6 +338,9 @@ function renderSeeds() {
 }
 
 // ---------- GROVE RENDERER (tombstones in rows) ----------
+// ------- GROVE RENDERER (fills container; image stones) -------
+const STONE_IMG = 'images/tombstone.png';
+
 function normalizeSeed(raw) {
   return {
     id: raw.id || Date.now(),
@@ -348,7 +351,7 @@ function normalizeSeed(raw) {
   };
 }
 
-// For demo: if empty, create a few fake stones so you can see the grid.
+// If empty, create a few mock stones so you can see the grid.
 function ensureMock() {
   const now = Date.now();
   let s = loadSeeds();
@@ -364,92 +367,133 @@ function ensureMock() {
   return s;
 }
 
+// Make the SVG viewBox match the rendered size
+function syncViewBox(svg) {
+  const w = Math.max(800, svg.clientWidth || 1200);
+  const h = Math.max(500, svg.clientHeight || 700);
+  svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+  return { w, h };
+}
+
 function renderStones() {
   const svg   = document.getElementById('groveCanvas');
   const layer = document.getElementById('stonesLayer');
   if (!svg || !layer) return;
 
-  // get data
+  // Match viewBox to CSS size
+  const { w: viewW, h: viewH } = syncViewBox(svg);
+
+  // Resize background + ground to fill new size
+  const bg = document.getElementById('bgRect');
+  if (bg) { bg.setAttribute('width', viewW); bg.setAttribute('height', viewH); }
+  const ground = document.getElementById('ground');
+  if (ground) {
+    const cx = viewW * 0.5;
+    const cy = viewH * 0.88;
+    const rx = viewW * 0.46;
+    const ry = Math.max(60, viewH * 0.09);
+    ground.setAttribute('cx', cx);
+    ground.setAttribute('cy', cy);
+    ground.setAttribute('rx', rx);
+    ground.setAttribute('ry', ry);
+  }
+
+  // padding so stones don’t hug edges
+  const leftPad = Math.max(32, viewW * 0.06);
+  const rightPad = leftPad;
+  const topPad = Math.max(24, viewH * 0.06);
+  const bottomPad = Math.max(100, viewH * 0.18);
+
+  const usableW = Math.max(1, viewW - leftPad - rightPad);
+  const usableH = Math.max(1, viewH - topPad - bottomPad);
+
+  // data
   let seeds = loadSeeds().map(normalizeSeed);
   if (!seeds.length) seeds = ensureMock();
-
-  // filter by activeFilter from STATE
   if (activeFilter !== 'all') seeds = seeds.filter(s => s.class === activeFilter);
 
   // clear
   while (layer.firstChild) layer.removeChild(layer.firstChild);
+  const N = seeds.length;
+  if (!N) return;
 
-  // layout
-  const viewW = 1200, viewH = 700;
-  const leftPad = 80, rightPad = 80, topPad = 80, bottomPad = 140;
-  const usableW = viewW - leftPad - rightPad;
+  // grid that fills the area based on aspect
+  const aspect = usableW / usableH;
+  let cols = Math.ceil(Math.sqrt(N * aspect));
+  cols = Math.max(2, Math.min(cols, N));      // clamp columns
+  let rows = Math.ceil(N / cols);
 
-  const dims = {
-    sm: { w: 80,  h: 110, r: 24 },
-    md: { w: 110, h: 150, r: 28 },
-    lg: { w: 150, h: 210, r: 34 }
-  };
-  const sizeOf = (seed) => {
-    const weight = Math.min(240, (seed.note.length + seed.ghost.length*0.25)) + Math.random()*50;
-    if (weight > 200) return 'lg';
-    if (weight > 120) return 'md';
-    return 'sm';
-  };
+  // cell size
+  const cellW = usableW / cols;
+  const cellH = usableH / rows;
 
-  const baseW = dims.sm.w + 24;
-  const cols  = Math.max(3, Math.floor(usableW / baseW));
-  const gapX  = Math.max(16, (usableW - cols*baseW)/Math.max(1,cols-1) + 24);
-  const rowGap = 26;
+  // stone size relative to cell (portrait-ish)
+  const stoneW = Math.max(80, Math.min(cellW * 0.78, 220));
+  const stoneH = stoneW * 1.25;
 
-  let cursorX = leftPad, cursorY = topPad;
-  let col = 0; const rowH = []; let row = 0; rowH[row] = 0;
+  // evenly distribute gaps
+  const totalW = cols * stoneW;
+  const totalH = rows * stoneH;
+  const gapX = cols > 1 ? (usableW - totalW) / (cols - 1) : 0;
+// add extra vertical spacing factor
+const VERTICAL_SPACING = 1.55;  // increase to push rows farther apart
+const gapY = rows > 1 ? ((usableH - totalH) / (rows - 1)) * VERTICAL_SPACING : 0;
 
-  seeds.forEach(seed => {
-    const sz = sizeOf(seed);
-    const d  = dims[sz];
-
-    if (col >= cols) {
-      cursorY += (rowH[row] || 0) + rowGap;
-      cursorX = leftPad;
-      col = 0; row += 1; rowH[row] = 0;
+  // place stones row-major
+  let i = 0;
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (i >= N) break;
+      const x = Math.round(leftPad + c * (stoneW + gapX));
+      const y = Math.round(topPad  + r * (stoneH + gapY));
+      drawStone(layer, x, y, stoneW, stoneH, seeds[i++]);
     }
-
-    const jx = (Math.random() - .5) * 8;
-    const jy = (Math.random() - .5) * 6;
-    const x = Math.round(cursorX + jx);
-    const y = Math.round(cursorY + jy);
-
-    drawStone(layer, x, y, d.w, d.h, d.r, seed);
-
-    cursorX += d.w + gapX;
-    col += 1;
-    rowH[row] = Math.max(rowH[row], d.h);
-  });
+  }
 }
 
-function drawStone(parent, x, y, w, h, r, seed) {
-  const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+// point these to your actual paths
+const OVERLAY = {
+  // src      – image path
+  // w,h      – size as a fraction of stone width/height
+  // ax, ay   – which edge of the stone to anchor to: 'left'|'center'|'right' and 'top'|'middle'|'bottom'
+  // dx, dy   – fine pixel nudges after anchoring
+  green:  { src:'images/green.png',  w:0.42, h:0.40, ax:'center', ay:'top',    dx:  0, dy:15 }, // small sprout over the top
+  yellow: { src:'images/yellow.png', w:0.52, h:0.34, ax:'right',  ay:'middle', dx: -35, dy:-20}, // branch on right side
+  red:    { src:'images/red.png',    w:0.58, h:0.42, ax:'center', ay:'bottom', dx:  0, dy:-62 }  // roots just below base
+};
+
+function drawStone(parent, x, y, w, h, seed) {
+  const ns = 'http://www.w3.org/2000/svg';
+
+  const g = document.createElementNS(ns, 'g');
   g.setAttribute('class', 'stone');
   g.setAttribute('tabindex','0');
   g.style.cursor = 'pointer';
 
-  // Use an <image> element for the tombstone graphic
-  const img = document.createElementNS('http://www.w3.org/2000/svg','image');
-  img.setAttribute('href', 'tombstone.png'); // <-- your uploaded file in the same folder
-  img.setAttribute('x', x);
-  img.setAttribute('y', y);
-  img.setAttribute('width', w);
-  img.setAttribute('height', h);
-  g.appendChild(img);
+  // Base tombstone image
+  const stone = document.createElementNS(ns, 'image');
+stone.setAttribute('href', STONE_IMG);   stone.setAttribute('x', x);
+  stone.setAttribute('y', y);
+  stone.setAttribute('width',  w);
+  stone.setAttribute('height', h);
+  stone.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+  g.appendChild(stone);
 
-  // optional: add a label on top of the stone
-  const label = document.createElementNS('http://www.w3.org/2000/svg','text');
-  label.setAttribute('x', x + w/2);
-  label.setAttribute('y', y + h/2);
-  label.setAttribute('text-anchor','middle');
-  label.setAttribute('class','stone-label');
-  label.textContent = (seed.ghost || '—').slice(0, 28);
-  g.appendChild(label);
+  // Add overlay based on class
+  addOverlay(g, seed.class || 'yellow', x, y, w, h);
+
+  // Short label under stone (remove if not wanted)
+  const labelText = (seed.ghost || '').slice(0, 26);
+  if (labelText) {
+    const label = document.createElementNS(ns, 'text');
+    label.setAttribute('x', x + w/2);
+    label.setAttribute('y', y + h + 16);
+    label.setAttribute('text-anchor', 'middle');
+    label.setAttribute('class', 'stone-label');
+    label.textContent = labelText;
+    label.style.pointerEvents = 'none';
+    g.appendChild(label);
+  }
 
   g.addEventListener('click', () => {
     alert(`Ghost memory (${seed.class}):\n\n${seed.ghost}\n\nNote: ${seed.note || '(none)'}`);
@@ -458,6 +502,53 @@ function drawStone(parent, x, y, w, h, r, seed) {
   parent.appendChild(g);
 }
 
+// Places green/yellow/red images around the stone
+function addOverlay(group, cls, x, y, w, h) {
+  const ns = 'http://www.w3.org/2000/svg';
+  const t = OVERLAY[cls];
+  if (!t) return;
+
+  // scale overlay relative to the stone
+  const ow = w * t.w;
+  const oh = h * t.h;
+
+  // anchor the overlay to a logical point on the stone
+  let ox = x, oy = y;
+
+  // horizontal anchor
+  if (t.ax === 'center') {
+    ox = x + (w - ow) / 2;
+  } else if (t.ax === 'right') {
+    // slight overlap into the stone so the branch looks attached
+    ox = x + w - ow * 0.25;
+  } else if (t.ax === 'left') {
+    ox = x - ow * 0.25;
+  }
+
+  // vertical anchor
+  if (t.ay === 'top') {
+    // overlap a little so the sprout grows out of the top edge
+    oy = y - oh * 0.60;
+  } else if (t.ay === 'middle') {
+    oy = y + (h - oh) / 2;
+  } else if (t.ay === 'bottom') {
+    // tuck roots just under the base
+    oy = y + h - oh * 0.15;
+  }
+
+  // fine pixel nudges
+  ox += t.dx;
+  oy += t.dy;
+
+  const piece = document.createElementNS(ns, 'image');
+  piece.setAttribute('href', t.src);
+  piece.setAttribute('x', ox);
+  piece.setAttribute('y', oy);
+  piece.setAttribute('width',  ow);
+  piece.setAttribute('height', oh);
+  piece.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+  group.appendChild(piece);
+}
 
 // reflow stones on resize
 window.addEventListener('resize', debounce(renderStones, 200));
