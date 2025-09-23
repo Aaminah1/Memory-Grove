@@ -132,6 +132,16 @@ button[disabled] { opacity:.6; cursor:not-allowed; }
   background:#22242e; border:1px solid #2a2b33; padding:.35rem .7rem; border-radius:999px; font-size:.9rem; cursor:pointer;
 }
 .grove-toolbar .filter-btn[aria-pressed="true"] { background:#3b3f52; }
+/* let clicks pass through the inscription block */
+#groveCanvas foreignObject,
+#groveCanvas .stone-inscription {
+  pointer-events: none;
+}
+
+/* (optional) also let overlays pass clicks through */
+#groveCanvas image.overlay {
+  pointer-events: none;
+}
 
 
 

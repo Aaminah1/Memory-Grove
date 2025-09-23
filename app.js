@@ -472,52 +472,62 @@ function drawStone(parent, x, y, w, h, seed) {
 
   // Base tombstone image
   const stone = document.createElementNS(ns, 'image');
-stone.setAttribute('href', STONE_IMG);   stone.setAttribute('x', x);
+  stone.setAttribute('href', STONE_IMG);
+  stone.setAttribute('x', x);
   stone.setAttribute('y', y);
   stone.setAttribute('width',  w);
   stone.setAttribute('height', h);
   stone.setAttribute('preserveAspectRatio', 'xMidYMid meet');
   g.appendChild(stone);
 
-  // Add overlay based on class
+  // Overlay (sprout/branch/roots)
   addOverlay(g, seed.class || 'yellow', x, y, w, h);
 
-  // Short label under stone (remove if not wanted)
- // Inscription INSIDE the stone (wrapped, 3 lines max)
-// Inscription INSIDE the stone (wrapped, 3 lines max)
-const inscription = (seed.ghost || '').trim();
-if (inscription) {
-  // ↑↑ make these insets bigger to create more white space
-  const innerX = x + w * 0.26;   // was 0.22
-  const innerY = y + h * 0.28;   // was 0.30
-  const innerW = w * 0.48;       // was 0.56
-  const innerH = h * 0.44;       // was 0.48
+  // Inscription INSIDE the stone
+  const inscription = (seed.ghost || '').trim();
+  if (inscription) {
+    const innerX = x + w * 0.26;
+    const innerY = y + h * 0.28;
+    const innerW = w * 0.48;
+    const innerH = h * 0.44;
 
-  const fo = document.createElementNS(ns, 'foreignObject');
-  fo.setAttribute('x', innerX);
-  fo.setAttribute('y', innerY);
-  fo.setAttribute('width', innerW);
-  fo.setAttribute('height', innerH);
+    const fo = document.createElementNS(ns, 'foreignObject');
+    fo.setAttribute('x', innerX);
+    fo.setAttribute('y', innerY);
+    fo.setAttribute('width', innerW);
+    fo.setAttribute('height', innerH);
+    fo.style.pointerEvents = 'none';                 // <-- IMPORTANT
 
-  const div = document.createElement('div');
-  div.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml');
-  div.className = 'stone-inscription';
-  div.textContent = inscription;
+    const div = document.createElement('div');
+    div.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml');
+    div.className = 'stone-inscription';
+    div.textContent = inscription;
+    div.style.pointerEvents = 'none';                // <-- IMPORTANT
 
-  // slightly smaller default font for comfort
-  let fs = w * 0.095;            // was ~0.10
-  if (inscription.length > 40) fs *= 0.9;
-  if (inscription.length > 80) fs *= 0.85;
-  div.style.fontSize = Math.max(9, Math.round(fs)) + 'px';
+    let fs = w * 0.095;
+    if (inscription.length > 40) fs *= 0.9;
+    if (inscription.length > 80) fs *= 0.85;
+    div.style.fontSize = Math.max(9, Math.round(fs)) + 'px';
 
-  fo.appendChild(div);
-  g.appendChild(fo);
-}
+    fo.appendChild(div);
+    g.appendChild(fo);
+  }
 
-  // finally append the group itself
+  // Click + keyboard to show memory
+  const open = () => {
+    const lines = [
+      seed.ghost || '(no memory text)',
+      seed.note ? `\n\nNote: ${seed.note}` : ''
+    ].join('');
+    alert(lines);
+  };
+  g.addEventListener('click', open);
+  g.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
+  });
+
   parent.appendChild(g);
-} // <-- this closes drawStone
-
+}
 
 // Places green/yellow/red images around the stone
 function addOverlay(group, cls, x, y, w, h) {
@@ -525,37 +535,19 @@ function addOverlay(group, cls, x, y, w, h) {
   const t = OVERLAY[cls];
   if (!t) return;
 
-  // scale overlay relative to the stone
   const ow = w * t.w;
   const oh = h * t.h;
 
-  // anchor the overlay to a logical point on the stone
   let ox = x, oy = y;
+  if (t.ax === 'center') ox = x + (w - ow) / 2;
+  else if (t.ax === 'right') ox = x + w - ow * 0.25;
+  else if (t.ax === 'left') ox = x - ow * 0.25;
 
-  // horizontal anchor
-  if (t.ax === 'center') {
-    ox = x + (w - ow) / 2;
-  } else if (t.ax === 'right') {
-    // slight overlap into the stone so the branch looks attached
-    ox = x + w - ow * 0.25;
-  } else if (t.ax === 'left') {
-    ox = x - ow * 0.25;
-  }
+  if (t.ay === 'top') oy = y - oh * 0.60;
+  else if (t.ay === 'middle') oy = y + (h - oh) / 2;
+  else if (t.ay === 'bottom') oy = y + h - oh * 0.15;
 
-  // vertical anchor
-  if (t.ay === 'top') {
-    // overlap a little so the sprout grows out of the top edge
-    oy = y - oh * 0.60;
-  } else if (t.ay === 'middle') {
-    oy = y + (h - oh) / 2;
-  } else if (t.ay === 'bottom') {
-    // tuck roots just under the base
-    oy = y + h - oh * 0.15;
-  }
-
-  // fine pixel nudges
-  ox += t.dx;
-  oy += t.dy;
+  ox += t.dx; oy += t.dy;
 
   const piece = document.createElementNS(ns, 'image');
   piece.setAttribute('href', t.src);
@@ -564,6 +556,11 @@ function addOverlay(group, cls, x, y, w, h) {
   piece.setAttribute('width',  ow);
   piece.setAttribute('height', oh);
   piece.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+
+  // <-- IMPORTANT: don’t block clicks on the group
+  piece.setAttribute('pointer-events', 'none');
+  piece.setAttribute('class', 'overlay');
+
   group.appendChild(piece);
 }
 
