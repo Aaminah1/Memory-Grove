@@ -191,7 +191,24 @@ button[disabled] { opacity:.6; cursor:not-allowed; }
 #groveCanvas { width: 100%; height: 100%; display: block; }
 
 /* Labels (if you kept them) */
-.stone-label { font-size: 12px; fill: rgba(255,255,255,.88); }
 
 /* If you still have halo elements and want them invisible anyway */
 .stone-halo { opacity: 0 !important; }
+/* Inscription text inside each tombstone */
+/* text that sits inside the tombstone */
+.stone-inscription {
+  width:100%; height:100%;
+  display:flex; align-items:center; justify-content:center;
+  text-align:center;
+  line-height:1.2;
+  padding:8px 10px;     /* add extra breathing room */
+  color:#1e2026;
+  overflow:hidden;
+  word-break:break-word;
+  hyphens:auto;
+
+  display:-webkit-box;
+  -webkit-box-orient:vertical;
+  -webkit-line-clamp:3;
+}
+

@@ -483,24 +483,41 @@ stone.setAttribute('href', STONE_IMG);   stone.setAttribute('x', x);
   addOverlay(g, seed.class || 'yellow', x, y, w, h);
 
   // Short label under stone (remove if not wanted)
-  const labelText = (seed.ghost || '').slice(0, 26);
-  if (labelText) {
-    const label = document.createElementNS(ns, 'text');
-    label.setAttribute('x', x + w/2);
-    label.setAttribute('y', y + h + 16);
-    label.setAttribute('text-anchor', 'middle');
-    label.setAttribute('class', 'stone-label');
-    label.textContent = labelText;
-    label.style.pointerEvents = 'none';
-    g.appendChild(label);
-  }
+ // Inscription INSIDE the stone (wrapped, 3 lines max)
+// Inscription INSIDE the stone (wrapped, 3 lines max)
+const inscription = (seed.ghost || '').trim();
+if (inscription) {
+  // ↑↑ make these insets bigger to create more white space
+  const innerX = x + w * 0.26;   // was 0.22
+  const innerY = y + h * 0.28;   // was 0.30
+  const innerW = w * 0.48;       // was 0.56
+  const innerH = h * 0.44;       // was 0.48
 
-  g.addEventListener('click', () => {
-    alert(`Ghost memory (${seed.class}):\n\n${seed.ghost}\n\nNote: ${seed.note || '(none)'}`);
-  });
+  const fo = document.createElementNS(ns, 'foreignObject');
+  fo.setAttribute('x', innerX);
+  fo.setAttribute('y', innerY);
+  fo.setAttribute('width', innerW);
+  fo.setAttribute('height', innerH);
 
-  parent.appendChild(g);
+  const div = document.createElement('div');
+  div.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml');
+  div.className = 'stone-inscription';
+  div.textContent = inscription;
+
+  // slightly smaller default font for comfort
+  let fs = w * 0.095;            // was ~0.10
+  if (inscription.length > 40) fs *= 0.9;
+  if (inscription.length > 80) fs *= 0.85;
+  div.style.fontSize = Math.max(9, Math.round(fs)) + 'px';
+
+  fo.appendChild(div);
+  g.appendChild(fo);
 }
+
+  // finally append the group itself
+  parent.appendChild(g);
+} // <-- this closes drawStone
+
 
 // Places green/yellow/red images around the stone
 function addOverlay(group, cls, x, y, w, h) {
