@@ -189,13 +189,24 @@ button[disabled] { opacity:.6; cursor:not-allowed; }
   background: #0f1117;
   border: 1px solid #2a2b33;
   border-radius: 14px;
-  overflow: hidden;
 
-  /* fill (almost) the whole viewport height */
+  /* keep clipping, but add real inner space */
+  overflow: hidden;
+  padding: 48px 32px 48px;   /* ← give the SVG breathing room */
+  box-sizing: border-box;    /* ← so the padding doesn't grow the visual height */
+
   width: 100%;
-  height: calc(100vh - 160px); /* tweak this number if header/footer are taller */
-  min-height: 720px;           /* make it feel grand */
+  height: calc(100vh - 160px);
+  min-height: 720px;
 }
+
+/* make the SVG fill the padded box cleanly */
+.grove-frame > svg#groveCanvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
 
 /* Let SVG stretch to the frame */
 #groveCanvas { width: 100%; height: 100%; display: block; }

@@ -1,20 +1,21 @@
 // =============================
-// Memory Grove — app.js (updated with per-class notes + replies)
+// Memory Grove — app.js (full w/ per-class notes + replies)
 // =============================
 
 // ---------- CONFIG ----------
-const API_URL = 'https://memory-grove-api.vercel.app/api/ghost';
+const API_URL   = 'https://memory-grove-api.vercel.app/api/ghost';
+const NOTE_ICON = 'images/note.png'; // <- put your note image here; keep or change
 
 // ---------- STATE ----------
 let selectedClass = null;     // 'green' | 'yellow' | 'red'
 let activeFilter  = 'all';    // 'all' | 'green' | 'yellow' | 'red'
 
-// Existing stone/classify modal refs (left intact if you use it elsewhere)
+// Existing stone/classify modal refs (optional if you keep it)
 let stoneModal, stoneGhostEl, stoneNoteEl, stoneSaveBtn, stoneDeleteBtn;
 let modalSeedId = null;
 let modalSelClass = null;
 
-// NEW: Notes modal refs
+// Notes modal refs
 let notesModal, notesTitleEl, notesListEl, notesInputEl, notesSaveBtn, notesCloseBtns = [];
 let notesSeedId = null;
 let notesClass = null;
@@ -37,7 +38,7 @@ function escapeHTML(s='') {
 }
 function saveSeeds(arr){ localStorage.setItem('memorySeeds', JSON.stringify(arr)); }
 
-// Wait until #tombstoneText has finished appearing
+// wait until #tombstoneText settles
 function revealClassifyAfterText(tombTextEl, classifyBoxEl) {
   if (!tombTextEl || !classifyBoxEl) return;
   classifyBoxEl.hidden = true;
@@ -91,7 +92,7 @@ function loadSeeds() {
   catch { return []; }
 }
 
-// NEW: threads per class (each thread: {class:'green|yellow|red', messages:[{by,text,at}]})
+// threads per class: [{class:'green|yellow|red', messages:[{by,text,at}]}]
 function normalizeSeed(raw) {
   return {
     id: raw.id || Date.now(),
@@ -112,20 +113,22 @@ function getThreadForClass(seed, cls, createIfMissing=false){
   return t || null;
 }
 
-// demo seeds if empty
-function ensureMock() {
-  const now = Date.now();
-  let s = loadSeeds();
-  if (s.length) return s.map(normalizeSeed);
-  s = [
-    {id:now+1, class:'green',  ghost:'A good echo from the ghost.', note:'resonant'},
-    {id:now+2, class:'yellow', ghost:'Half-right and half-smudged.', note:'needs nuance'},
-    {id:now+3, class:'red',    ghost:'Confidently wrong in a familiar way.', note:'harmful'},
-    {id:now+4, class:'yellow', ghost:'Fragmented memory, polished tone.', note:'meh'},
-    {id:now+5, class:'green',  ghost:'It lands softly and true.', note:'nice'}
-  ].map(normalizeSeed);
-  saveSeeds(s);
-  return s;
+// one-time: move legacy `note` into its class thread so badges show
+function migrateLegacyNotes(){
+  const seeds = loadSeeds().map(normalizeSeed);
+  let changed = false;
+  for (const s of seeds) {
+    if (s.note && s.note.trim()) {
+      const cls = s.class || 'yellow';
+      const hasThread = (s.threads || []).some(t => t.class === cls && t.messages && t.messages.length);
+      if (!hasThread) {
+        const t = getThreadForClass(s, cls, true);
+        t.messages.push({ by:'planter', text:s.note.trim(), at: s.at || new Date().toISOString() });
+        changed = true;
+      }
+    }
+  }
+  if (changed) saveSeeds(seeds);
 }
 
 function renderSeeds() {
@@ -199,10 +202,13 @@ function renderStones() {
   if (bg) { bg.setAttribute('width', viewW); bg.setAttribute('height', viewH); }
 
   // padding so stones don’t hug edges
-  const leftPad = Math.max(32, viewW * 0.06);
-  const rightPad = leftPad;
-  const topPad = Math.max(24, viewH * 0.06);
-  const bottomPad = Math.max(100, viewH * 0.18);
+
+const SAFE_TOP = 32; // extra pixels inside the SVG
+const leftPad   = Math.max(32, viewW * 0.06);
+const rightPad  = leftPad;
+const topPad    = Math.max(24 + SAFE_TOP, viewH * 0.06);  // ← extra headroom
+const bottomPad = Math.max(100, viewH * 0.18);
+
 
   const usableW = Math.max(1, viewW - leftPad - rightPad);
   const usableH = Math.max(1, viewH - topPad - bottomPad);
@@ -273,10 +279,7 @@ function drawStone(parent, x, y, w, h, seed) {
   // Overlay for the seed's chosen class
   addOverlay(g, seed.class || 'yellow', x, y, w, h);
 
-  // Add note badge(s) for any class that has messages
-  ['green','yellow','red'].forEach(cls => addNoteBadge(g, seed, cls, x, y, w, h));
-
-  // Inscription inside the stone
+  // Inscription (click-through)
   const inscription = (seed.ghost || '').trim();
   if (inscription) {
     const innerX = x + w * 0.26;
@@ -289,6 +292,7 @@ function drawStone(parent, x, y, w, h, seed) {
     fo.setAttribute('y', innerY);
     fo.setAttribute('width', innerW);
     fo.setAttribute('height', innerH);
+    fo.style.pointerEvents = 'none';
 
     const div = document.createElement('div');
     div.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml');
@@ -296,12 +300,16 @@ function drawStone(parent, x, y, w, h, seed) {
     div.textContent = inscription;
     let fs = w * 0.095; if (inscription.length > 40) fs *= 0.9; if (inscription.length > 80) fs *= 0.85;
     div.style.fontSize = Math.max(9, Math.round(fs)) + 'px';
+    div.style.pointerEvents = 'none';
 
     fo.appendChild(div);
     g.appendChild(fo);
   }
 
-  // Click + keyboard to open main stone modal (if you want to keep it)
+  // badges (after inscription so they sit on top)
+  ['green','yellow','red'].forEach(cls => addNoteBadge(g, seed, cls, x, y, w, h));
+
+  // open main stone modal (optional)
   const open = () => openStoneModal(seed);
   g.addEventListener('click', open);
   g.addEventListener('keydown', (e) => {
@@ -336,7 +344,7 @@ function addOverlay(group, cls, x, y, w, h) {
   group.appendChild(piece);
 }
 
-// NEW: add a small 📝 badge near the overlay if that class has thread messages
+// ---------- NOTE BADGE ----------
 function addNoteBadge(group, seed, cls, x, y, w, h) {
   const thread = getThreadForClass(seed, cls, false);
   if (!thread || !thread.messages || !thread.messages.length) return;
@@ -345,7 +353,7 @@ function addNoteBadge(group, seed, cls, x, y, w, h) {
   const t = OVERLAY[cls];
   if (!t) return;
 
-  // anchor to overlay box
+  // anchor near the overlay
   const ow = w * t.w, oh = h * t.h;
   let ox = x, oy = y;
   if (t.ax === 'center') ox = x + (w - ow) / 2;
@@ -356,64 +364,55 @@ function addNoteBadge(group, seed, cls, x, y, w, h) {
   else if (t.ay === 'bottom') oy = y + h - oh * 0.15;
   ox += t.dx; oy += t.dy;
 
-  // place badge at overlay's top-right
-  const bx = ox + ow - 18;
-  const by = oy - 6;
+  // badge position (tweak as you like)
+  const bx = ox + ow - 20;
+  const by = oy - 8;
 
-  const g = document.createElementNS(ns, 'g');
-  g.setAttribute('class', 'note-badge');
-  g.style.cursor = 'pointer';
-  g.addEventListener('click', (e) => { e.stopPropagation(); openNotesModal(seed, cls); });
+  const gBadge = document.createElementNS(ns, 'g');
+  gBadge.setAttribute('class', 'note-badge');
+  gBadge.style.cursor = 'pointer';
+  gBadge.addEventListener('click', (e) => { e.stopPropagation(); openNotesModal(seed, cls); });
 
-  const bg = document.createElementNS(ns, 'rect');
-  bg.setAttribute('x', bx);
-  bg.setAttribute('y', by);
-  bg.setAttribute('rx', 6);
-  bg.setAttribute('ry', 6);
-  bg.setAttribute('width', 28);
-  bg.setAttribute('height', 20);
-  bg.setAttribute('fill', '#1e1f27');
-  bg.setAttribute('stroke', '#aaa');
-  bg.setAttribute('stroke-width', '1');
+  // your icon image (fallback to emoji if image fails)
+  const icon = document.createElementNS(ns, 'image');
+  icon.setAttribute('href', NOTE_ICON);
+  icon.setAttribute('x', bx);
+  icon.setAttribute('y', by);
+  icon.setAttribute('width', 24);
+  icon.setAttribute('height', 24);
+  icon.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+  gBadge.appendChild(icon);
 
-  const txt = document.createElementNS(ns, 'text');
-  txt.setAttribute('x', bx + 8);
-  txt.setAttribute('y', by + 14);
-  txt.setAttribute('font-size', '12');
-  txt.setAttribute('font-family', 'system-ui, sans-serif');
-  txt.setAttribute('fill', '#fff');
-  txt.textContent = '📝';
-
-  // tiny count dot (optional)
+  // tiny red count dot
   const count = thread.messages.length;
   if (count > 1) {
+    const cx = bx + 22, cy = by + 4;
     const cBG = document.createElementNS(ns, 'circle');
-    cBG.setAttribute('cx', bx + 26);
-    cBG.setAttribute('cy', by + 4);
-    cBG.setAttribute('r', 6);
+    cBG.setAttribute('cx', cx);
+    cBG.setAttribute('cy', cy);
+    cBG.setAttribute('r', 7);
     cBG.setAttribute('fill', '#e5484d');
+
     const cTx = document.createElementNS(ns, 'text');
-    cTx.setAttribute('x', bx + 26);
-    cTx.setAttribute('y', by + 6);
+    cTx.setAttribute('x', cx);
+    cTx.setAttribute('y', cy + 3);
     cTx.setAttribute('text-anchor', 'middle');
     cTx.setAttribute('font-size', '9');
     cTx.setAttribute('font-family', 'system-ui, sans-serif');
     cTx.setAttribute('fill', '#fff');
-    cTx.textContent = Math.min(9, count); // 9+ compact
-    g.appendChild(cBG);
-    g.appendChild(cTx);
+    cTx.textContent = Math.min(9, count);
+
+    gBadge.appendChild(cBG);
+    gBadge.appendChild(cTx);
   }
 
-  g.appendChild(bg);
-  g.appendChild(txt);
-  group.appendChild(g);
+  group.appendChild(gBadge);
 }
 
-// ---------- MODAL: existing stone modal (kept minimal) ----------
+// ---------- MODAL: existing stone modal (optional) ----------
 function ensureModal(){
   stoneModal = document.getElementById('stoneModal');
-  if (!stoneModal) return; // optional now
-  // refs
+  if (!stoneModal) return;
   stoneGhostEl    = document.getElementById('stoneGhost');
   stoneNoteEl     = document.getElementById('stoneNote');
   stoneSaveBtn    = document.getElementById('stoneSave');
@@ -598,6 +597,22 @@ function mapErrorMessage(raw='') {
   return 'An unexpected error occurred.';
 }
 
+// demo seeds if empty
+function ensureMock() {
+  const now = Date.now();
+  let s = loadSeeds();
+  if (s.length) return s.map(normalizeSeed);
+  s = [
+    {id:now+1, class:'green',  ghost:'A good echo from the ghost.', note:'resonant'},
+    {id:now+2, class:'yellow', ghost:'Half-right and half-smudged.', note:'needs nuance'},
+    {id:now+3, class:'red',    ghost:'Confidently wrong in a familiar way.', note:'harmful'},
+    {id:now+4, class:'yellow', ghost:'Fragmented memory, polished tone.', note:'meh'},
+    {id:now+5, class:'green',  ghost:'It lands softly and true.', note:'nice'}
+  ].map(normalizeSeed);
+  saveSeeds(s);
+  return s;
+}
+
 // ---------- APP ----------
 window.addEventListener('DOMContentLoaded', () => {
   // Tabs
@@ -703,7 +718,7 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Plant seed from Ask panel (now also seeds a class-thread if note present)
+  // Plant seed (also seeds a class-thread if note present)
   plantBtn?.addEventListener('click', () => {
     const ghost = (tombText?.textContent || '').trim();
     if (!ghost) { showToast('Ask the ghost first.'); return; }
@@ -717,7 +732,7 @@ window.addEventListener('DOMContentLoaded', () => {
       id: Date.now(),
       class: selectedClass,
       ghost,
-      note, // legacy field (still shown in the list panel)
+      note, // legacy field
       at: new Date().toISOString(),
       threads: []
     };
@@ -741,6 +756,7 @@ window.addEventListener('DOMContentLoaded', () => {
     updateGroveBadge();
     tabGroveBtn?.classList.add('pulse');
     setTimeout(() => tabGroveBtn?.classList.remove('pulse'), 1800);
+
     const groveNudge  = document.getElementById('groveNudge');
     if (groveNudge) {
       groveNudge.hidden = false;
@@ -751,7 +767,7 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 
     tabGrove?.click();
-    renderStones(); // so the new badge appears immediately
+    renderStones(); // update badges immediately
   });
 
   // Grove: filters/export/import
@@ -765,7 +781,7 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Export / Import (optional)
+  // Export / Import
   const exportBtn = document.getElementById('exportBtn');
   exportBtn?.addEventListener('click', () => {
     const blob = new Blob([localStorage.getItem('memorySeeds') || '[]'], { type:'application/json' });
@@ -798,12 +814,13 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 
   // Start
-  ensureModal();      // stone modal (optional)
-  ensureNotesModal(); // notes modal
+  ensureModal();          // optional
+  ensureNotesModal();     // notes UI
+  migrateLegacyNotes();   // <-- make old notes show as badges
   renderSeeds();
   updateGroveBadge();
-  const groveSectionVisible = !document.getElementById('groveSection')?.hidden;
-  if (groveSectionVisible) renderStones();
+  const groveVisible = !document.getElementById('groveSection')?.hidden;
+  if (groveVisible) renderStones();
 
   // Reflow stones on resize
   window.addEventListener('resize', debounce(renderStones, 200));

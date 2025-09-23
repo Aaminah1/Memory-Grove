@@ -43,3 +43,32 @@
 .secondary { background:#22242e; border:1px solid #2a2b33; color:#e6e6e6; padding:.55rem 1rem; border-radius:10px; }
 .danger { background:#4f2323; border:1px solid #e5534b; color:#ffdede; padding:.55rem 1rem; border-radius:10px; }
 .primary:hover, .secondary:hover, .danger:hover { filter: brightness(1.05); }
+/* Make toasts visible if you have .toast already */
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: 18px; background:#1e1f27; color:#fff; padding:8px 12px; border-radius:10px; opacity:0; pointer-events:none; transition:.25s; z-index:1200; }
+.toast.show { opacity:1; }
+
+/* Modal baseline */
+.modal { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; z-index: 1000; }
+.modal.is-open { display: flex; }
+.modal__backdrop, .modal-backdrop { position:absolute; inset:0; background: rgba(0,0,0,.45); }
+.modal__dialog, .modal-card {
+  position: relative; z-index: 1; background:#16171d; color:#fff; width:min(680px, 92vw);
+  border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,.5);
+  padding: 8px 0 12px;
+}
+.modal__header, .modal-header { padding: 10px 20px 8px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,.08); }
+.modal__body, .modal-body { padding: 16px 20px; max-height: 60vh; overflow:auto; }
+.modal__footer, .modal-footer { padding: 12px 20px; display:flex; gap:12px; align-items:center; border-top:1px solid rgba(255,255,255,.08); }
+.modal-close { background:transparent; border:0; color:#fff; font-size:20px; cursor:pointer; opacity:.8; }
+.modal-close:hover { opacity:1; }
+
+/* Notes list */
+.notes-list { list-style:none; margin:0; padding:0; display:grid; gap:10px; }
+.note-item { background:#1e1f27; border:1px solid rgba(255,255,255,.08); border-radius:10px; padding:10px 12px; }
+.note-head { display:flex; gap:8px; align-items:baseline; }
+.note-author { font-weight:600; }
+.note-time { opacity:.7; }
+#notesInput { width:100%; min-height:80px; resize:vertical; }
+
+/* Optional: improve foreignObject inscription look */
+.stone-inscription { line-height:1.2; color:#30323a; text-align:center; word-break:break-word; }
