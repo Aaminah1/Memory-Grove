@@ -1,0 +1,45 @@
+/* ---- Modal ---- */
+.grove-frame::before,
+.grove-frame::after { pointer-events: none; }
+
+.modal { position: fixed; inset: 0; display: none; }
+.modal[aria-hidden="false"] { display: block; }
+
+.modal-backdrop {
+  position: absolute; inset: 0;
+  background: rgba(0,0,0,.55);
+  backdrop-filter: blur(2px);
+}
+
+.modal-card {
+  position: absolute; left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(720px, 92vw);
+  background: #14151c;
+  border: 1px solid #2a2b33;
+  border-radius: 14px;
+  box-shadow: 0 12px 40px rgba(0,0,0,.45);
+  display: flex; flex-direction: column; max-height: 86vh; overflow: hidden;
+}
+
+.modal-header, .modal-footer { padding: .9rem 1rem; background: #171821; display: flex; align-items: center; gap: .6rem; }
+.modal-header h3 { margin: 0; font-size: 1.05rem; }
+.modal-body { padding: 1rem; overflow: auto; display: grid; gap: .75rem; }
+.modal-close { background: transparent; border: none; color: #cfd2d8; font-size: 1.4rem; line-height: 1; cursor: pointer; }
+.modal-ghost { white-space: pre-wrap; color: #e6e6e6; }
+
+.modal-choices { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: .35rem; }
+.mc { padding: .45rem .7rem; border-radius: 999px; border: 1px solid #2a2b33; background: #22242e; color: #e6e6e6; cursor: pointer; }
+.mc.active[data-class="green"]  { background: #2ea043; border-color: #2ea043; color: #0e0f14; }
+.mc.active[data-class="yellow"] { background: #c9a806; border-color: #c9a806; color: #222; }
+.mc.active[data-class="red"]    { background: #e5534b; border-color: #e5534b; color: #fff; }
+
+.modal-note { width: 100%; min-height: 96px; padding: .6rem; background: #10121a; border: 1px solid #2a2b33; border-radius: 10px; color: #fff; }
+.block { display: block; color: #cfd2d8; }
+.modal-footer .spacer { flex: 1; }
+
+/* buttons */
+.primary { background:#3b3f52; border:1px solid #2a2b33; color:#fff; padding:.55rem 1rem; border-radius:10px; }
+.secondary { background:#22242e; border:1px solid #2a2b33; color:#e6e6e6; padding:.55rem 1rem; border-radius:10px; }
+.danger { background:#4f2323; border:1px solid #e5534b; color:#ffdede; padding:.55rem 1rem; border-radius:10px; }
+.primary:hover, .secondary:hover, .danger:hover { filter: brightness(1.05); }

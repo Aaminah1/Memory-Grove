@@ -5,6 +5,11 @@ const API_URL = 'https://memory-grove-api.vercel.app/api/ghost';
 let selectedClass = null;     // 'green' | 'yellow' | 'red'
 let activeFilter  = 'all';    // 'all' | 'green' | 'yellow' | 'red'
 
+// Modal refs (set by ensureModal)
+let stoneModal, stoneGhostEl, stoneNoteEl, stoneSaveBtn, stoneDeleteBtn;
+let modalSeedId = null;
+let modalSelClass = null;
+
 // ---------- UTIL ----------
 function showToast(msg) {
   const el = document.getElementById('toast');
@@ -20,51 +25,139 @@ function setStep(active) {
 function escapeHTML(s='') {
   return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
-// Wait until #tombstoneText has *finished* appearing (handles CSS anim/transition OR typewriter changes)
-function revealClassifyAfterText(tombTextEl, classifyBoxEl) {
-  // always start hidden
-  classifyBoxEl.hidden = true;
+function saveSeeds(arr){ localStorage.setItem('memorySeeds', JSON.stringify(arr)); }
 
+// Wait until #tombstoneText has finished appearing
+function revealClassifyAfterText(tombTextEl, classifyBoxEl) {
+  classifyBoxEl.hidden = true;
   const show = () => {
-    if (!classifyBoxEl.hidden) return; // already shown
-    // next frame to ensure final paint is done
+    if (!classifyBoxEl.hidden) return;
     requestAnimationFrame(() => {
       classifyBoxEl.hidden = false;
       setStep('classify');
       document.querySelector('.classify-row button')?.focus();
     });
   };
-
-  // If the element is being animated via CSS:
   const cs = getComputedStyle(tombTextEl);
   const hasAnim = cs.animationName !== 'none' && parseFloat(cs.animationDuration) > 0;
   const hasTrans = parseFloat(cs.transitionDuration) > 0;
-
   let done = false;
   const finish = () => { if (!done) { done = true; cleanup(); show(); } };
-
-  // Mutation-based watcher: if text keeps changing (typewriter), wait until it stabilizes.
   let stableTimer = null;
-  const OBSERVE_STABLE_MS = 160; // time with no changes = "finished"
+  const OBSERVE_STABLE_MS = 160;
   const mo = new MutationObserver(() => {
     clearTimeout(stableTimer);
     stableTimer = setTimeout(finish, OBSERVE_STABLE_MS);
   });
   mo.observe(tombTextEl, { characterData: true, subtree: true, childList: true });
-
-  // CSS hooks
   const onEnd = () => finish();
   if (hasAnim) tombTextEl.addEventListener('animationend', onEnd, { once: true });
   if (hasTrans) tombTextEl.addEventListener('transitionend', onEnd, { once: true });
-
-  // Safety: if none of the above trigger, show next frame
   const safety = setTimeout(finish, 0);
+  function cleanup() { try { mo.disconnect(); } catch{} clearTimeout(stableTimer); clearTimeout(safety); }
+}
 
-  function cleanup() {
-    try { mo.disconnect(); } catch {}
-    clearTimeout(stableTimer);
-    clearTimeout(safety);
+// ---------- MODAL (complete + self-inject if missing) ----------
+function ensureModal(){
+  stoneModal = document.getElementById('stoneModal');
+  if (!stoneModal) {
+    const wrap = document.createElement('div');
+    wrap.innerHTML = `
+<div class="modal" id="stoneModal" aria-hidden="true" role="dialog" aria-modal="true">
+  <div class="modal__backdrop" data-close></div>
+  <div class="modal__dialog" role="document">
+    <button class="modal-close" type="button" aria-label="Close" data-close>✕</button>
+    <h3 class="modal__title">Ghost Memory</h3>
+    <div class="modal__body">
+      <p id="stoneGhost" class="modal-ghost"></p>
+      <div class="modal-classify">
+        <button type="button" class="mc" data-class="green"  title="Resonates">Resonates</button>
+        <button type="button" class="mc" data-class="yellow" title="Partial / nuance">Partially right</button>
+        <button type="button" class="mc" data-class="red"    title="Counter-memory">Wrong / harmful</button>
+      </div>
+      <label class="visually-hidden" for="stoneNote">Your note</label>
+      <textarea id="stoneNote" placeholder="Add a correction, nuance, or counter-memory (optional)"></textarea>
+    </div>
+    <div class="modal__footer">
+      <button id="stoneDelete" class="btn-danger" type="button">Delete</button>
+      <div class="spacer"></div>
+      <button id="stoneSave" class="btn-primary" type="button">Save</button>
+    </div>
+  </div>
+</div>`;
+    document.body.appendChild(wrap.firstElementChild);
+    stoneModal = document.getElementById('stoneModal');
   }
+  // refs
+  stoneGhostEl    = document.getElementById('stoneGhost');
+  stoneNoteEl     = document.getElementById('stoneNote');
+  stoneSaveBtn    = document.getElementById('stoneSave');
+  stoneDeleteBtn  = document.getElementById('stoneDelete');
+
+  // close handlers
+  stoneModal.querySelectorAll('[data-close]').forEach(el => el.addEventListener('click', closeStoneModal));
+  stoneModal.addEventListener('click', (e) => {
+    if (e.target.classList.contains('modal')) closeStoneModal();
+  });
+
+  // classify chips inside modal
+  stoneModal.querySelectorAll('.mc').forEach(btn => {
+    btn.addEventListener('click', () => {
+      stoneModal.querySelectorAll('.mc').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      modalSelClass = btn.getAttribute('data-class');
+    });
+  });
+
+  // buttons
+  stoneSaveBtn.addEventListener('click', () => {
+    if (modalSeedId == null) return;
+    const seeds = loadSeeds();
+    const i = seeds.findIndex(s => String(s.id) === String(modalSeedId));
+    if (i === -1) return;
+    if (modalSelClass) seeds[i].class = modalSelClass;
+    seeds[i].note = stoneNoteEl.value.trim();
+    saveSeeds(seeds);
+    renderSeeds(); renderStones(); updateGroveBadge();
+    showToast('Saved'); closeStoneModal();
+  });
+  stoneDeleteBtn.addEventListener('click', () => {
+    if (modalSeedId == null) return;
+    const seeds = loadSeeds().filter(s => String(s.id) !== String(modalSeedId));
+    saveSeeds(seeds);
+    renderSeeds(); renderStones(); updateGroveBadge();
+    showToast('Deleted'); closeStoneModal();
+  });
+}
+
+function setModalOpen(open){
+  if (!stoneModal) return;
+  stoneModal.setAttribute('aria-hidden', open ? 'false' : 'true');
+  stoneModal.classList.toggle('is-open', open);   // <-- add this line
+  document.body.classList.toggle('modal-open', open);
+  if (open){
+    setTimeout(() => stoneModal.querySelector('.modal-close')?.focus(), 0);
+    document.addEventListener('keydown', onEscClose);
+  } else {
+    document.removeEventListener('keydown', onEscClose);
+  }
+}
+
+function onEscClose(e){ if (e.key === 'Escape') closeStoneModal(); }
+function closeStoneModal(){ setModalOpen(false); modalSeedId = null; }
+
+function openStoneModal(seed){
+  ensureModal(); // make sure modal exists/wired
+  modalSeedId   = seed.id;
+  modalSelClass = seed.class || 'yellow';
+  stoneGhostEl.textContent = seed.ghost || '(no text)';
+  stoneNoteEl.value = seed.note || '';
+  // activate selected chip
+  stoneModal.querySelectorAll('.mc').forEach(b => {
+    const isActive = b.getAttribute('data-class') === modalSelClass;
+    b.classList.toggle('active', isActive);
+  });
+  setModalOpen(true);
 }
 
 // ---------- APP ----------
@@ -75,25 +168,24 @@ window.addEventListener('DOMContentLoaded', () => {
   const ghostSection = document.getElementById('ghostSection');
   const groveSection = document.getElementById('groveSection');
 
-  tabAsk.addEventListener('click', () => {
+  tabAsk?.addEventListener('click', () => {
     tabAsk.classList.add('active'); tabGrove.classList.remove('active');
     ghostSection.hidden = false;    groveSection.hidden = true;
   });
-  tabGrove.addEventListener('click', () => {
+  tabGrove?.addEventListener('click', () => {
     tabGrove.classList.add('active'); tabAsk.classList.remove('active');
     ghostSection.hidden = true;      groveSection.hidden = false;
     renderSeeds();
+    renderStones();
   });
 
   // Nudge → go to Grove
   const groveNudge  = document.getElementById('groveNudge');
   const gotoGrove   = document.getElementById('gotoGrove');
-  if (gotoGrove) {
-    gotoGrove.addEventListener('click', () => {
-      document.getElementById('tab-grove').click();
-      groveNudge.hidden = true;
-    });
-  }
+  gotoGrove?.addEventListener('click', () => {
+    tabGrove?.click();
+    groveNudge.hidden = true;
+  });
 
   // Ask
   const askForm = document.getElementById('askForm');
@@ -105,21 +197,18 @@ window.addEventListener('DOMContentLoaded', () => {
   const skeleton  = document.getElementById('skeleton');
   const errorBox  = document.getElementById('errorBox');
 
-  const classifyBox = document.getElementById('classifyBox'); // <-- the whole "Choose how it feels" block
+  const classifyBox = document.getElementById('classifyBox');
 
   const plantBtn  = document.getElementById('plantBtn');
   const selectedChip = document.getElementById('selectedChip');
   const tabGroveBtn = document.getElementById('tab-grove');
 
-  // Enable/disable Ask based on input length
-  questionEl.addEventListener('input', () => {
+  questionEl?.addEventListener('input', () => {
     askBtn.disabled = questionEl.value.trim().length < 3;
   });
-
-  // Disable Plant until a class is chosen
   plantBtn.disabled = true;
 
-  // Classification
+  // Classification chips (Ask panel)
   document.querySelectorAll('.classify button[data-class]').forEach(btn => {
     btn.addEventListener('click', () => {
       selectedClass = btn.getAttribute('data-class');
@@ -137,24 +226,17 @@ window.addEventListener('DOMContentLoaded', () => {
   });
 
   // Submit Ask
-  askForm.addEventListener('submit', async (e) => {
+  askForm?.addEventListener('submit', async (e) => {
     e.preventDefault();
-
     const q = questionEl.value.trim();
     if (q.length < 3) { questionEl.focus(); showToast('Type a longer question.'); return; }
-
-    // UI: prepping
     setStep('read');
     askBtn.disabled = true; askBtn.textContent = 'Listening…';
     tombstone.hidden = false;
     tombText.textContent = '';
     errorBox.hidden = true; errorBox.textContent = '';
     skeleton.hidden = false;
-
-    // hide classification while loading
     classifyBox.hidden = true;
-
-    // reset classification for this reply
     selectedClass = null;
     plantBtn.disabled = true;
     selectedChip.hidden = true;
@@ -164,8 +246,6 @@ window.addEventListener('DOMContentLoaded', () => {
       const text = await getGhostMemory(q);
       tombText.textContent = text || 'The ghost is silent…';
       skeleton.hidden = true;
-
-      // Reveal the classify block only once the text is fully done showing
       revealClassifyAfterText(tombText, classifyBox);
     } catch (err) {
       skeleton.hidden = true;
@@ -173,31 +253,23 @@ window.addEventListener('DOMContentLoaded', () => {
       errorBox.textContent = msg;
       errorBox.hidden = false;
       tombText.textContent = 'The ghost is silent for now…';
-      classifyBox.hidden = true; // keep hidden on error
+      classifyBox.hidden = true;
       showToast('Could not get a reply.');
     } finally {
       askBtn.disabled = false; askBtn.textContent = 'Ask';
     }
   });
 
-  // Plant seed
-  plantBtn.addEventListener('click', () => {
+  // Plant seed from Ask panel
+  plantBtn?.addEventListener('click', () => {
     const ghost = tombText.textContent.trim();
     if (!ghost) { showToast('Ask the ghost first.'); return; }
     if (!selectedClass) { showToast('Choose how it felt.'); return; }
-
     const note = document.getElementById('note').value.trim();
     const seeds = loadSeeds();
-    seeds.unshift({
-      id: Date.now(),
-      class: selectedClass,
-      ghost,
-      note,
-      at: new Date().toISOString()
-    });
-    localStorage.setItem('memorySeeds', JSON.stringify(seeds));
+    seeds.unshift({ id: Date.now(), class: selectedClass, ghost, note, at: new Date().toISOString() });
+    saveSeeds(seeds);
 
-    // reset micro-state
     document.getElementById('note').value = '';
     selectedClass = null;
     plantBtn.disabled = true;
@@ -207,15 +279,13 @@ window.addEventListener('DOMContentLoaded', () => {
     setStep('plant');
     showToast('Seed planted 🌱');
 
-    // pulse Grove, update badge, show nudge
     updateGroveBadge();
     tabGroveBtn.classList.add('pulse');
     setTimeout(() => tabGroveBtn.classList.remove('pulse'), 1800);
     groveNudge.hidden = false;
     setTimeout(() => { if (!document.getElementById('groveSection').hidden) groveNudge.hidden = true; }, 4000);
 
-    // switch to Grove (keep this or remove if you prefer to stay on Ask)
-    tabGrove.click();
+    tabGrove?.click();
   });
 
   // Grove: filters/export/import
@@ -225,22 +295,21 @@ window.addEventListener('DOMContentLoaded', () => {
       btn.setAttribute('aria-pressed','true');
       activeFilter = btn.getAttribute('data-filter');
       renderSeeds();
+      renderStones();
     });
   });
 
+  // Optional export/import (keep your existing buttons if you have them)
   const exportBtn = document.getElementById('exportBtn');
-  if (exportBtn) {
-    exportBtn.addEventListener('click', () => {
-      const blob = new Blob([localStorage.getItem('memorySeeds') || '[]'], { type:'application/json' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `memory-grove-seeds-${Date.now()}.json`;
-      a.click();
-      URL.revokeObjectURL(a.href);
-      showToast('Exported seeds');
-    });
-  }
-
+  exportBtn?.addEventListener('click', () => {
+    const blob = new Blob([localStorage.getItem('memorySeeds') || '[]'], { type:'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `memory-grove-seeds-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    showToast('Exported seeds');
+  });
   const importBtn = document.getElementById('importBtn');
   const importFile= document.getElementById('importFile');
   if (importBtn && importFile) {
@@ -252,21 +321,22 @@ window.addEventListener('DOMContentLoaded', () => {
         const text = await file.text();
         const arr = JSON.parse(text);
         if (!Array.isArray(arr)) throw new Error('Bad file');
-        localStorage.setItem('memorySeeds', JSON.stringify(arr));
+        saveSeeds(arr);
         renderSeeds();
+        renderStones();
         showToast('Imported seeds');
-      } catch {
-        showToast('Invalid seeds file');
-      } finally { e.target.value = ''; }
+      } catch { showToast('Invalid seeds file'); }
+      finally { e.target.value = ''; }
     });
   }
 
-  // Init
+  // Start
   renderSeeds();
   updateGroveBadge();
-
-  // If grove is visible on first load, render stones immediately
   if (!document.getElementById('groveSection').hidden) renderStones();
+
+  // Reflow stones on resize
+  window.addEventListener('resize', debounce(renderStones, 200));
 });
 
 // ---------- API ----------
@@ -276,10 +346,8 @@ async function getGhostMemory(question) {
     headers:{ 'Content-Type':'application/json' },
     body: JSON.stringify({ question })
   });
-
   let data = null;
   try { data = await res.json(); } catch { data = null; }
-
   if (!res.ok) {
     const serverMsg = (data && data.error) ? data.error : '';
     const msg = serverMsg || `HTTP ${res.status} ${res.statusText}`;
@@ -337,8 +405,7 @@ function renderSeeds() {
   updateGroveBadge();
 }
 
-// ---------- GROVE RENDERER (tombstones in rows) ----------
-// ------- GROVE RENDERER (fills container; image stones) -------
+// ---------- GROVE RENDERER ----------
 const STONE_IMG = 'images/tombstone.png';
 
 function normalizeSeed(raw) {
@@ -350,8 +417,7 @@ function normalizeSeed(raw) {
     at:   raw.at    || Date.now()
   };
 }
-
-// If empty, create a few mock stones so you can see the grid.
+// demo seeds if empty
 function ensureMock() {
   const now = Date.now();
   let s = loadSeeds();
@@ -363,11 +429,11 @@ function ensureMock() {
     {id:now+4, class:'yellow', ghost:'Fragmented memory, polished tone.', note:'meh'},
     {id:now+5, class:'green',  ghost:'It lands softly and true.', note:'nice'}
   ].map(normalizeSeed);
-  localStorage.setItem('memorySeeds', JSON.stringify(s));
+  saveSeeds(s);
   return s;
 }
 
-// Make the SVG viewBox match the rendered size
+// Match viewBox to CSS size
 function syncViewBox(svg) {
   const w = Math.max(800, svg.clientWidth || 1200);
   const h = Math.max(500, svg.clientHeight || 700);
@@ -380,23 +446,11 @@ function renderStones() {
   const layer = document.getElementById('stonesLayer');
   if (!svg || !layer) return;
 
-  // Match viewBox to CSS size
   const { w: viewW, h: viewH } = syncViewBox(svg);
 
-  // Resize background + ground to fill new size
+  // background rect resize if present
   const bg = document.getElementById('bgRect');
   if (bg) { bg.setAttribute('width', viewW); bg.setAttribute('height', viewH); }
-  const ground = document.getElementById('ground');
-  if (ground) {
-    const cx = viewW * 0.5;
-    const cy = viewH * 0.88;
-    const rx = viewW * 0.46;
-    const ry = Math.max(60, viewH * 0.09);
-    ground.setAttribute('cx', cx);
-    ground.setAttribute('cy', cy);
-    ground.setAttribute('rx', rx);
-    ground.setAttribute('ry', ry);
-  }
 
   // padding so stones don’t hug edges
   const leftPad = Math.max(32, viewW * 0.06);
@@ -420,7 +474,7 @@ function renderStones() {
   // grid that fills the area based on aspect
   const aspect = usableW / usableH;
   let cols = Math.ceil(Math.sqrt(N * aspect));
-  cols = Math.max(2, Math.min(cols, N));      // clamp columns
+  cols = Math.max(2, Math.min(cols, N));
   let rows = Math.ceil(N / cols);
 
   // cell size
@@ -431,13 +485,12 @@ function renderStones() {
   const stoneW = Math.max(80, Math.min(cellW * 0.78, 220));
   const stoneH = stoneW * 1.25;
 
-  // evenly distribute gaps
+  // gaps
   const totalW = cols * stoneW;
   const totalH = rows * stoneH;
   const gapX = cols > 1 ? (usableW - totalW) / (cols - 1) : 0;
-// add extra vertical spacing factor
-const VERTICAL_SPACING = 1.55;  // increase to push rows farther apart
-const gapY = rows > 1 ? ((usableH - totalH) / (rows - 1)) * VERTICAL_SPACING : 0;
+  const VERTICAL_SPACING = 1.55;
+  const gapY = rows > 1 ? ((usableH - totalH) / (rows - 1)) * VERTICAL_SPACING : 0;
 
   // place stones row-major
   let i = 0;
@@ -451,15 +504,10 @@ const gapY = rows > 1 ? ((usableH - totalH) / (rows - 1)) * VERTICAL_SPACING : 0
   }
 }
 
-// point these to your actual paths
 const OVERLAY = {
-  // src      – image path
-  // w,h      – size as a fraction of stone width/height
-  // ax, ay   – which edge of the stone to anchor to: 'left'|'center'|'right' and 'top'|'middle'|'bottom'
-  // dx, dy   – fine pixel nudges after anchoring
-  green:  { src:'images/green.png',  w:0.42, h:0.40, ax:'center', ay:'top',    dx:  0, dy:15 }, // small sprout over the top
-  yellow: { src:'images/yellow.png', w:0.52, h:0.34, ax:'right',  ay:'middle', dx: -35, dy:-20}, // branch on right side
-  red:    { src:'images/red.png',    w:0.58, h:0.42, ax:'center', ay:'bottom', dx:  0, dy:-62 }  // roots just below base
+  green:  { src:'images/green.png',  w:0.42, h:0.40, ax:'center', ay:'top',    dx:  0, dy:15 },
+  yellow: { src:'images/yellow.png', w:0.52, h:0.34, ax:'right',  ay:'middle', dx: -35, dy:-20},
+  red:    { src:'images/red.png',    w:0.58, h:0.42, ax:'center', ay:'bottom', dx:  0, dy:-62 }
 };
 
 function drawStone(parent, x, y, w, h, seed) {
@@ -468,9 +516,29 @@ function drawStone(parent, x, y, w, h, seed) {
   const g = document.createElementNS(ns, 'g');
   g.setAttribute('class', 'stone');
   g.setAttribute('tabindex','0');
+  g.setAttribute('role','button');
+  g.setAttribute('aria-label','Open memory');
   g.style.cursor = 'pointer';
 
-  // Base tombstone image
+  // Click + keyboard to open modal
+  const open = () => openStoneModal(seed);
+  g.addEventListener('click', open);
+  g.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
+  });
+
+  // --- IMPORTANT: add a transparent hit-rect on top to capture clicks ---
+  const hit = document.createElementNS(ns, 'rect');
+  hit.setAttribute('x', x);
+  hit.setAttribute('y', y);
+  hit.setAttribute('width',  w);
+  hit.setAttribute('height', h);
+  hit.setAttribute('fill', 'transparent');   // visible = none, but clickable
+  hit.style.pointerEvents = 'all';
+  // we append this LAST so it sits above and gets the click
+  // (we’ll append it after the visual pieces below)
+
+  // Base tombstone image (leave pointer-events DEFAULT)
   const stone = document.createElementNS(ns, 'image');
   stone.setAttribute('href', STONE_IMG);
   stone.setAttribute('x', x);
@@ -480,10 +548,10 @@ function drawStone(parent, x, y, w, h, seed) {
   stone.setAttribute('preserveAspectRatio', 'xMidYMid meet');
   g.appendChild(stone);
 
-  // Overlay (sprout/branch/roots)
+  // Overlay (leave default pointer events)
   addOverlay(g, seed.class || 'yellow', x, y, w, h);
 
-  // Inscription INSIDE the stone
+  // Inscription inside the stone (leave default pointer events)
   const inscription = (seed.ghost || '').trim();
   if (inscription) {
     const innerX = x + w * 0.26;
@@ -496,57 +564,38 @@ function drawStone(parent, x, y, w, h, seed) {
     fo.setAttribute('y', innerY);
     fo.setAttribute('width', innerW);
     fo.setAttribute('height', innerH);
-    fo.style.pointerEvents = 'none';                 // <-- IMPORTANT
 
     const div = document.createElement('div');
     div.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml');
     div.className = 'stone-inscription';
     div.textContent = inscription;
-    div.style.pointerEvents = 'none';                // <-- IMPORTANT
-
-    let fs = w * 0.095;
-    if (inscription.length > 40) fs *= 0.9;
-    if (inscription.length > 80) fs *= 0.85;
+    let fs = w * 0.095; if (inscription.length > 40) fs *= 0.9; if (inscription.length > 80) fs *= 0.85;
     div.style.fontSize = Math.max(9, Math.round(fs)) + 'px';
 
     fo.appendChild(div);
     g.appendChild(fo);
   }
 
-  // Click + keyboard to show memory
-  const open = () => {
-    const lines = [
-      seed.ghost || '(no memory text)',
-      seed.note ? `\n\nNote: ${seed.note}` : ''
-    ].join('');
-    alert(lines);
-  };
-  g.addEventListener('click', open);
-  g.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
-  });
+  // <-- append the hit rect last so it’s on top for clicking
+  g.appendChild(hit);
 
   parent.appendChild(g);
 }
 
-// Places green/yellow/red images around the stone
+
 function addOverlay(group, cls, x, y, w, h) {
   const ns = 'http://www.w3.org/2000/svg';
   const t = OVERLAY[cls];
   if (!t) return;
-
   const ow = w * t.w;
   const oh = h * t.h;
-
   let ox = x, oy = y;
   if (t.ax === 'center') ox = x + (w - ow) / 2;
   else if (t.ax === 'right') ox = x + w - ow * 0.25;
-  else if (t.ax === 'left') ox = x - ow * 0.25;
-
-  if (t.ay === 'top') oy = y - oh * 0.60;
-  else if (t.ay === 'middle') oy = y + (h - oh) / 2;
-  else if (t.ay === 'bottom') oy = y + h - oh * 0.15;
-
+  else if (t.ax === 'left')  ox = x - ow * 0.25;
+  if (t.ay === 'top')        oy = y - oh * 0.60;
+  else if (t.ay === 'middle')oy = y + (h - oh) / 2;
+  else if (t.ay === 'bottom')oy = y + h - oh * 0.15;
   ox += t.dx; oy += t.dy;
 
   const piece = document.createElementNS(ns, 'image');
@@ -556,21 +605,12 @@ function addOverlay(group, cls, x, y, w, h) {
   piece.setAttribute('width',  ow);
   piece.setAttribute('height', oh);
   piece.setAttribute('preserveAspectRatio', 'xMidYMid meet');
-
-  // <-- IMPORTANT: don’t block clicks on the group
-  piece.setAttribute('pointer-events', 'none');
-  piece.setAttribute('class', 'overlay');
-
+  piece.style.pointerEvents = 'none'; // do not steal clicks
   group.appendChild(piece);
 }
 
-// reflow stones on resize
-window.addEventListener('resize', debounce(renderStones, 200));
-
-// helper
-function debounce(fn, ms=200){
-  let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); };
-}
+// helpers
+function debounce(fn, ms=200){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; }
 
 // ---------- ICONS, BADGE, ERRORS ----------
 function iconForClass(c) {
@@ -578,18 +618,13 @@ function iconForClass(c) {
   if (c === 'red')    return { emoji:'🪦', title:'Counter-memory' };
   return                { emoji:'🌿', title:'Partial / Nuanced' };
 }
-
 function updateGroveBadge() {
   let count = 0;
   try { count = (JSON.parse(localStorage.getItem('memorySeeds')) || []).length; }
   catch { count = 0; }
   const badge = document.getElementById('groveBadge');
-  if (badge) {
-    if (count > 0) { badge.textContent = String(count); badge.hidden = false; }
-    else { badge.hidden = true; }
-  }
+  if (badge) { if (count > 0) { badge.textContent = String(count); badge.hidden = false; } else { badge.hidden = true; } }
 }
-
 function mapErrorMessage(raw='') {
   const s = raw.toLowerCase();
   if (s.includes('429')) return 'Rate limit reached. Please try again in a moment.';

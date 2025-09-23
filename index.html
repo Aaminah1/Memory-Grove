@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Memory Grove</title>
   <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="modal-styles.css" />
 </head>
 <body>
   <header class="site-header">
@@ -139,5 +140,39 @@
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   <script src="app.js"></script>
+  <!-- Stone Modal -->
+<div id="stoneModal" class="modal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="stoneTitle">
+  <div class="modal-backdrop" data-close></div>
+  <div class="modal-card" role="document">
+    <header class="modal-header">
+      <h3 id="stoneTitle">Ghost Memory</h3>
+      <button class="modal-close" type="button" title="Close" data-close>&times;</button>
+    </header>
+
+    <div class="modal-body">
+      <p id="stoneGhost" class="modal-ghost"></p>
+
+      <div class="modal-classify">
+        <label class="block">How does it feel?</label>
+        <div class="modal-choices" role="group" aria-label="Choose a classification">
+          <button type="button" class="mc" data-class="green">🌱 Resonates</button>
+          <button type="button" class="mc" data-class="yellow">🌿 Partially right</button>
+          <button type="button" class="mc" data-class="red">🪦 Wrong / harmful</button>
+        </div>
+      </div>
+
+      <label for="stoneNote" class="block">Your note (optional)</label>
+      <textarea id="stoneNote" class="modal-note" placeholder="Add nuance or a correction…"></textarea>
+    </div>
+
+    <footer class="modal-footer">
+      <button type="button" id="stoneDelete" class="danger">Delete</button>
+      <div class="spacer"></div>
+      <button type="button" class="secondary" data-close>Cancel</button>
+      <button type="button" id="stoneSave" class="primary">Save</button>
+    </footer>
+  </div>
+</div>
+
 </body>
 </html>
