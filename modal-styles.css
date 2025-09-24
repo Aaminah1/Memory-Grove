@@ -70,5 +70,5 @@
 .note-time { opacity:.7; }
 #notesInput { width:100%; min-height:80px; resize:vertical; }
 
-/* Optional: improve foreignObject inscription look */
+
 .stone-inscription { line-height:1.2; color:#30323a; text-align:center; word-break:break-word; }

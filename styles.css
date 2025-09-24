@@ -41,8 +41,6 @@ nav { display:flex; gap:.5rem; }
 main { padding:1rem; max-width:900px; margin:auto; }
 .panel { margin-top:1rem; }
 .help { color:#aab0bb; font-size:.92rem; margin-top:.35rem; }
-
-/* Make the GROVE panel wider than the Ask panel */
 #groveSection.panel { max-width: min(1400px, 96vw); margin-inline:auto; }
 
 /* Stepper */

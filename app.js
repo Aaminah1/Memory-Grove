@@ -1,7 +1,3 @@
-/* =============================
-   Memory Grove — app.js (notes-open + seed thread on save)
-   ============================= */
-
 /* ---------- CONFIG ---------- */
 const API_URL = 'https://memory-grove-api.vercel.app/api/ghost';
 
@@ -96,7 +92,7 @@ function normalizeSeed(raw) {
   return {
     id: raw.id || Date.now(),
     ghost: (raw.ghost || '').toString(),
-    note: (raw.note  || '').toString(),     // legacy planter note
+    note: (raw.note  || '').toString(),     
     class: raw.class || 'yellow',
     at:   raw.at    || new Date().toISOString(),
     threads: Array.isArray(raw.threads) ? raw.threads : []
@@ -229,12 +225,12 @@ const bottomPad = Math.max(180, viewH * 0.26);
   const totalW = cols * stoneW;
   const totalH = rows * stoneH;
   const gapX = cols > 1 ? (usableW - totalW) / (cols - 1) : 0;
-const VERTICAL_SPACING = 2.30;   // ↑ bigger number = more space between rows
-const MIN_ROW_GAP = 40;  // hard floor for row spacing
+const VERTICAL_SPACING = 2.30;   
+const MIN_ROW_GAP = 40;  
 const gapY = rows > 1
   ? Math.max(MIN_ROW_GAP, ((usableH - totalH) / (rows - 1)) * VERTICAL_SPACING)
   : 0;
-const ROW_CUSHION = 32; // try 28–40 to taste     
+const ROW_CUSHION = 32;    
 
   let i = 0;
   for (let r = 0; r < rows; r++) {
@@ -256,7 +252,7 @@ function drawStone(parent, x, y, w, h, seed) {
   g.setAttribute('role','button');
   g.setAttribute('aria-label','Open memory');
   g.style.cursor = 'pointer';
-  g.__seedId = seed.id; // so overlay click can fetch fresh seed from storage
+  g.__seedId = seed.id; 
 
   // Base tombstone image
   const stone = document.createElementNS(ns, 'image');
@@ -268,7 +264,7 @@ function drawStone(parent, x, y, w, h, seed) {
   stone.setAttribute('preserveAspectRatio', 'xMidYMid meet');
   g.appendChild(stone);
 
-  // Overlay (clickable to open notes—even if no thread yet)
+  // Overlay (clickable to open notes)
   addOverlay(g, seed, seed.class || 'yellow', x, y, w, h);
 
   // Inscription
@@ -346,7 +342,6 @@ function addOverlay(group, seed, cls, x, y, w, h) {
   //clicking overlay opens notes for that class (even if no thread yet)
   piece.addEventListener('click', (e) => {
     e.stopPropagation();
-    // grab the freshest seed from storage by id, fallback to passed seed
     const fresh = loadSeeds().map(normalizeSeed).find(s => String(s.id) === String(group.__seedId)) || seed;
     openNotesModal(fresh, cls);
   });
@@ -376,13 +371,12 @@ function addNoteBadge(group, seed, cls, x, y, w, h) {
 
   ox += t.dx; oy += t.dy;
 
-  // place INSIDE the overlay (top-right, inset)
-// place the badge just OUTSIDE the overlay, to the right
+
 const ICON = 22;
 
-// tweak these two to taste (bigger = further away)
-const OUT_X = 12;   // horizontal push to the right
-const OUT_Y = -2;   // small vertical nudge
+
+const OUT_X = 12;   
+const OUT_Y = -2;   
 
 const bx = ox + ow + OUT_X;
 const by = oy + OUT_Y;
@@ -394,7 +388,7 @@ const by = oy + OUT_Y;
   g.addEventListener('click', (e) => { e.stopPropagation(); openNotesModal(seed, cls); });
 
   const img = document.createElementNS(ns, 'image');
-  img.setAttribute('href', NOTE_ICON + '?v=2');  // cache-bust if you were seeing the old circle
+  img.setAttribute('href', NOTE_ICON + '?v=2');  
   img.setAttribute('x', bx);
   img.setAttribute('y', by);
   img.setAttribute('width',  ICON);
@@ -402,7 +396,7 @@ const by = oy + OUT_Y;
   img.setAttribute('preserveAspectRatio', 'xMidYMid meet');
   g.appendChild(img);
 
-  // tiny count (optional – delete this block to remove it entirely)
+  // tiny count
   const count = thread.messages.length;
   if (count > 1) {
     const cBG = document.createElementNS(ns, 'circle');
@@ -425,7 +419,7 @@ cTx.setAttribute('x', bx + ICON + 8);
   group.appendChild(g);
 }
 
-/* ---------- STONE MODAL (minimal) ---------- */
+/* ---------- STONE MODAL  ---------- */
 function ensureModal(){
   stoneModal = document.getElementById('stoneModal');
   if (!stoneModal) return;
@@ -447,7 +441,7 @@ function ensureModal(){
     });
   });
 
-  // UPDATED: also seed/update a notes thread so the 📝 badge appears
+  
   stoneSaveBtn?.addEventListener('click', () => {
     if (modalSeedId == null) return;
     const seeds = loadSeeds().map(normalizeSeed);
