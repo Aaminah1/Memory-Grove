@@ -202,7 +202,7 @@ function renderStones() {
   const leftPad   = Math.max(32, viewW * 0.06);
   const rightPad  = leftPad;
 const topPad    = Math.max(64,  viewH * 0.10);
-const bottomPad = Math.max(140, viewH * 0.24);
+const bottomPad = Math.max(180, viewH * 0.26);
 
   const usableW = Math.max(1, viewW - leftPad - rightPad);
   const usableH = Math.max(1, viewH - topPad - bottomPad);
@@ -230,8 +230,10 @@ const bottomPad = Math.max(140, viewH * 0.24);
   const totalH = rows * stoneH;
   const gapX = cols > 1 ? (usableW - totalW) / (cols - 1) : 0;
 const VERTICAL_SPACING = 2.30;   // ↑ bigger number = more space between rows
-const gapY = rows > 1 ? ((usableH - totalH) / (rows - 1)) * VERTICAL_SPACING : 0;
-
+const MIN_ROW_GAP = 40;  // hard floor for row spacing
+const gapY = rows > 1
+  ? Math.max(MIN_ROW_GAP, ((usableH - totalH) / (rows - 1)) * VERTICAL_SPACING)
+  : 0;
 const ROW_CUSHION = 32; // try 28–40 to taste     
 
   let i = 0;
@@ -375,10 +377,16 @@ function addNoteBadge(group, seed, cls, x, y, w, h) {
   ox += t.dx; oy += t.dy;
 
   // place INSIDE the overlay (top-right, inset)
-  const INSET = 8;
-  const ICON  = 22;
-  const bx = ox + ow - ICON - INSET;
-  const by = oy + INSET;             // <-- inside (was oy - 6)
+// place the badge just OUTSIDE the overlay, to the right
+const ICON = 22;
+
+// tweak these two to taste (bigger = further away)
+const OUT_X = 12;   // horizontal push to the right
+const OUT_Y = -2;   // small vertical nudge
+
+const bx = ox + ow + OUT_X;
+const by = oy + OUT_Y;
+
 
   const g = document.createElementNS(ns, 'g');
   g.setAttribute('class', 'note-badge');
@@ -398,12 +406,12 @@ function addNoteBadge(group, seed, cls, x, y, w, h) {
   const count = thread.messages.length;
   if (count > 1) {
     const cBG = document.createElementNS(ns, 'circle');
-    cBG.setAttribute('cx', bx + ICON - 2);
+cBG.setAttribute('cx', bx + ICON + 8);
     cBG.setAttribute('cy', by + 6);
     cBG.setAttribute('r', 6);
     cBG.setAttribute('fill', '#e5484d');
     const cTx = document.createElementNS(ns, 'text');
-    cTx.setAttribute('x', bx + ICON - 2);
+cTx.setAttribute('x', bx + ICON + 8);
     cTx.setAttribute('y', by + 8);
     cTx.setAttribute('text-anchor', 'middle');
     cTx.setAttribute('font-size', '9');
