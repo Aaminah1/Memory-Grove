@@ -1,16 +1,15 @@
-// =============================
-// Memory Grove — app.js (full w/ per-class notes + replies)
-// =============================
+/* =============================
+   Memory Grove — app.js (notes-open + seed thread on save)
+   ============================= */
 
-// ---------- CONFIG ----------
-const API_URL   = 'https://memory-grove-api.vercel.app/api/ghost';
-const NOTE_ICON = 'images/note.png'; // <- put your note image here; keep or change
+/* ---------- CONFIG ---------- */
+const API_URL = 'https://memory-grove-api.vercel.app/api/ghost';
 
-// ---------- STATE ----------
+/* ---------- STATE ---------- */
 let selectedClass = null;     // 'green' | 'yellow' | 'red'
 let activeFilter  = 'all';    // 'all' | 'green' | 'yellow' | 'red'
 
-// Existing stone/classify modal refs (optional if you keep it)
+// Stone/classify modal refs
 let stoneModal, stoneGhostEl, stoneNoteEl, stoneSaveBtn, stoneDeleteBtn;
 let modalSeedId = null;
 let modalSelClass = null;
@@ -20,7 +19,7 @@ let notesModal, notesTitleEl, notesListEl, notesInputEl, notesSaveBtn, notesClos
 let notesSeedId = null;
 let notesClass = null;
 
-// ---------- UTIL ----------
+/* ---------- UTIL ---------- */
 function showToast(msg) {
   const el = document.getElementById('toast');
   if (!el) return;
@@ -38,7 +37,7 @@ function escapeHTML(s='') {
 }
 function saveSeeds(arr){ localStorage.setItem('memorySeeds', JSON.stringify(arr)); }
 
-// wait until #tombstoneText settles
+/* Wait until #tombstoneText has finished appearing */
 function revealClassifyAfterText(tombTextEl, classifyBoxEl) {
   if (!tombTextEl || !classifyBoxEl) return;
   classifyBoxEl.hidden = true;
@@ -66,10 +65,10 @@ function revealClassifyAfterText(tombTextEl, classifyBoxEl) {
   if (hasAnim) tombTextEl.addEventListener('animationend', onEnd, { once: true });
   if (hasTrans) tombTextEl.addEventListener('transitionend', onEnd, { once: true });
   const safety = setTimeout(finish, 0);
-  function cleanup() { try { mo.disconnect(); } catch{} clearTimeout(stableTimer); clearTimeout(safety); }
+  function cleanup(){ try{mo.disconnect();}catch{} clearTimeout(stableTimer); clearTimeout(safety); }
 }
 
-// ---------- API ----------
+/* ---------- API ---------- */
 async function getGhostMemory(question) {
   const res = await fetch(API_URL, {
     method:'POST',
@@ -86,13 +85,13 @@ async function getGhostMemory(question) {
   return (data && data.text) ? data.text : '';
 }
 
-// ---------- SEEDS ----------
+/* ---------- SEEDS ---------- */
 function loadSeeds() {
   try { return JSON.parse(localStorage.getItem('memorySeeds')) || []; }
   catch { return []; }
 }
 
-// threads per class: [{class:'green|yellow|red', messages:[{by,text,at}]}]
+// threads per class (each: {class:'green|yellow|red', messages:[{by,text,at}]})
 function normalizeSeed(raw) {
   return {
     id: raw.id || Date.now(),
@@ -113,22 +112,20 @@ function getThreadForClass(seed, cls, createIfMissing=false){
   return t || null;
 }
 
-// one-time: move legacy `note` into its class thread so badges show
-function migrateLegacyNotes(){
-  const seeds = loadSeeds().map(normalizeSeed);
-  let changed = false;
-  for (const s of seeds) {
-    if (s.note && s.note.trim()) {
-      const cls = s.class || 'yellow';
-      const hasThread = (s.threads || []).some(t => t.class === cls && t.messages && t.messages.length);
-      if (!hasThread) {
-        const t = getThreadForClass(s, cls, true);
-        t.messages.push({ by:'planter', text:s.note.trim(), at: s.at || new Date().toISOString() });
-        changed = true;
-      }
-    }
-  }
-  if (changed) saveSeeds(seeds);
+// demo seeds if empty
+function ensureMock() {
+  const now = Date.now();
+  let s = loadSeeds();
+  if (s.length) return s.map(normalizeSeed);
+  s = [
+    {id:now+1, class:'green',  ghost:'A good echo from the ghost.', note:'resonant'},
+    {id:now+2, class:'yellow', ghost:'Half-right and half-smudged.', note:'needs nuance'},
+    {id:now+3, class:'red',    ghost:'Confidently wrong in a familiar way.', note:'harmful'},
+    {id:now+4, class:'yellow', ghost:'Fragmented memory, polished tone.', note:'meh'},
+    {id:now+5, class:'green',  ghost:'It lands softly and true.', note:'nice'}
+  ].map(normalizeSeed);
+  saveSeeds(s);
+  return s;
 }
 
 function renderSeeds() {
@@ -175,7 +172,7 @@ function renderSeeds() {
   updateGroveBadge();
 }
 
-// ---------- GROVE RENDERER ----------
+/* ---------- GROVE RENDERER ---------- */
 const STONE_IMG = 'images/tombstone.png';
 
 function syncViewBox(svg) {
@@ -186,10 +183,11 @@ function syncViewBox(svg) {
 }
 
 const OVERLAY = {
-  green:  { src:'images/green.png',  w:0.42, h:0.40, ax:'center', ay:'top',    dx:  0, dy:15 },
-  yellow: { src:'images/yellow.png', w:0.52, h:0.34, ax:'right',  ay:'middle', dx: -35, dy:-20},
-  red:    { src:'images/red.png',    w:0.58, h:0.42, ax:'center', ay:'bottom', dx:  0, dy:-62 }
+  green:  { src:'images/green.png',  w:0.38, h:0.35, ax:'center', ay:'top',    dx:  0, dy: 12 },
+  yellow: { src:'images/yellow.png', w:0.46, h:0.30, ax:'right',  ay:'middle', dx:-28, dy:-14 },
+  red:    { src:'images/red.png',    w:0.52, h:0.36, ax:'center', ay:'bottom', dx:  0, dy:-50}
 };
+
 
 function renderStones() {
   const svg   = document.getElementById('groveCanvas');
@@ -201,50 +199,41 @@ function renderStones() {
   const bg = document.getElementById('bgRect');
   if (bg) { bg.setAttribute('width', viewW); bg.setAttribute('height', viewH); }
 
-  // padding so stones don’t hug edges
-
-const SAFE_TOP = 32; // extra pixels inside the SVG
-const leftPad   = Math.max(32, viewW * 0.06);
-const rightPad  = leftPad;
-const topPad    = Math.max(24 + SAFE_TOP, viewH * 0.06);  // ← extra headroom
-const bottomPad = Math.max(100, viewH * 0.18);
-
+  const leftPad   = Math.max(32, viewW * 0.06);
+  const rightPad  = leftPad;
+const topPad    = Math.max(64,  viewH * 0.10);
+const bottomPad = Math.max(140, viewH * 0.24);
 
   const usableW = Math.max(1, viewW - leftPad - rightPad);
   const usableH = Math.max(1, viewH - topPad - bottomPad);
 
-  // data
   let seeds = loadSeeds().map(normalizeSeed);
   if (!seeds.length) seeds = ensureMock();
   if (activeFilter !== 'all') seeds = seeds.filter(s => s.class === activeFilter);
 
-  // clear
   while (layer.firstChild) layer.removeChild(layer.firstChild);
   const N = seeds.length;
   if (!N) return;
 
-  // grid that fills the area based on aspect
   const aspect = usableW / usableH;
   let cols = Math.ceil(Math.sqrt(N * aspect));
   cols = Math.max(2, Math.min(cols, N));
   let rows = Math.ceil(N / cols);
 
-  // cell size
   const cellW = usableW / cols;
   const cellH = usableH / rows;
 
-  // stone size relative to cell (portrait-ish)
   const stoneW = Math.max(80, Math.min(cellW * 0.78, 220));
   const stoneH = stoneW * 1.25;
 
-  // gaps
   const totalW = cols * stoneW;
   const totalH = rows * stoneH;
   const gapX = cols > 1 ? (usableW - totalW) / (cols - 1) : 0;
-  const VERTICAL_SPACING = 1.55;
-  const gapY = rows > 1 ? ((usableH - totalH) / (rows - 1)) * VERTICAL_SPACING : 0;
+const VERTICAL_SPACING = 2.30;   // ↑ bigger number = more space between rows
+const gapY = rows > 1 ? ((usableH - totalH) / (rows - 1)) * VERTICAL_SPACING : 0;
 
-  // place stones row-major
+const ROW_CUSHION = 32; // try 28–40 to taste     
+
   let i = 0;
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
@@ -265,6 +254,7 @@ function drawStone(parent, x, y, w, h, seed) {
   g.setAttribute('role','button');
   g.setAttribute('aria-label','Open memory');
   g.style.cursor = 'pointer';
+  g.__seedId = seed.id; // so overlay click can fetch fresh seed from storage
 
   // Base tombstone image
   const stone = document.createElementNS(ns, 'image');
@@ -276,10 +266,10 @@ function drawStone(parent, x, y, w, h, seed) {
   stone.setAttribute('preserveAspectRatio', 'xMidYMid meet');
   g.appendChild(stone);
 
-  // Overlay for the seed's chosen class
-  addOverlay(g, seed.class || 'yellow', x, y, w, h);
+  // Overlay (clickable to open notes—even if no thread yet)
+  addOverlay(g, seed, seed.class || 'yellow', x, y, w, h);
 
-  // Inscription (click-through)
+  // Inscription
   const inscription = (seed.ghost || '').trim();
   if (inscription) {
     const innerX = x + w * 0.26;
@@ -306,32 +296,40 @@ function drawStone(parent, x, y, w, h, seed) {
     g.appendChild(fo);
   }
 
-  // badges (after inscription so they sit on top)
+  // Note badges (only when messages exist)
   ['green','yellow','red'].forEach(cls => addNoteBadge(g, seed, cls, x, y, w, h));
 
-  // open main stone modal (optional)
+  // Open main stone modal (single click)
   const open = () => openStoneModal(seed);
   g.addEventListener('click', open);
+
+  // Shortcuts to open notes:
+  g.addEventListener('dblclick', (e) => { e.stopPropagation(); openNotesModal(seed, seed.class || 'yellow'); });
   g.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
+    if (e.key.toLowerCase() === 'n') { e.preventDefault(); openNotesModal(seed, seed.class || 'yellow'); }
   });
 
   parent.appendChild(g);
 }
 
-function addOverlay(group, cls, x, y, w, h) {
+/* overlay now receives seed so it can open notes */
+function addOverlay(group, seed, cls, x, y, w, h) {
   const ns = 'http://www.w3.org/2000/svg';
   const t = OVERLAY[cls];
   if (!t) return;
+
   const ow = w * t.w;
   const oh = h * t.h;
   let ox = x, oy = y;
+
   if (t.ax === 'center') ox = x + (w - ow) / 2;
   else if (t.ax === 'right') ox = x + w - ow * 0.25;
   else if (t.ax === 'left')  ox = x - ow * 0.25;
-  if (t.ay === 'top')        oy = y - oh * 0.60;
-  else if (t.ay === 'middle')oy = y + (h - oh) / 2;
-  else if (t.ay === 'bottom')oy = y + h - oh * 0.15;
+
+  if (t.ay === 'top')         oy = y - oh * 0.60;
+  else if (t.ay === 'middle') oy = y + (h - oh) / 2;
+  else if (t.ay === 'bottom') oy = y + h - oh * 0.15;
+
   ox += t.dx; oy += t.dy;
 
   const piece = document.createElementNS(ns, 'image');
@@ -341,78 +339,89 @@ function addOverlay(group, cls, x, y, w, h) {
   piece.setAttribute('width',  ow);
   piece.setAttribute('height', oh);
   piece.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+  piece.style.cursor = 'pointer';
+
+  //clicking overlay opens notes for that class (even if no thread yet)
+  piece.addEventListener('click', (e) => {
+    e.stopPropagation();
+    // grab the freshest seed from storage by id, fallback to passed seed
+    const fresh = loadSeeds().map(normalizeSeed).find(s => String(s.id) === String(group.__seedId)) || seed;
+    openNotesModal(fresh, cls);
+  });
+
   group.appendChild(piece);
 }
+const NOTE_ICON = 'images/note.png'; // your image
 
-// ---------- NOTE BADGE ----------
 function addNoteBadge(group, seed, cls, x, y, w, h) {
   const thread = getThreadForClass(seed, cls, false);
-  if (!thread || !thread.messages || !thread.messages.length) return;
+  if (!thread || !thread.messages?.length) return;
 
   const ns = 'http://www.w3.org/2000/svg';
   const t = OVERLAY[cls];
   if (!t) return;
 
-  // anchor near the overlay
+  // overlay anchor box
   const ow = w * t.w, oh = h * t.h;
   let ox = x, oy = y;
   if (t.ax === 'center') ox = x + (w - ow) / 2;
   else if (t.ax === 'right') ox = x + w - ow * 0.25;
   else if (t.ax === 'left')  ox = x - ow * 0.25;
+
   if (t.ay === 'top')         oy = y - oh * 0.60;
   else if (t.ay === 'middle') oy = y + (h - oh) / 2;
   else if (t.ay === 'bottom') oy = y + h - oh * 0.15;
+
   ox += t.dx; oy += t.dy;
 
-  // badge position (tweak as you like)
-  const bx = ox + ow - 20;
-  const by = oy - 8;
+  // place INSIDE the overlay (top-right, inset)
+  const INSET = 8;
+  const ICON  = 22;
+  const bx = ox + ow - ICON - INSET;
+  const by = oy + INSET;             // <-- inside (was oy - 6)
 
-  const gBadge = document.createElementNS(ns, 'g');
-  gBadge.setAttribute('class', 'note-badge');
-  gBadge.style.cursor = 'pointer';
-  gBadge.addEventListener('click', (e) => { e.stopPropagation(); openNotesModal(seed, cls); });
+  const g = document.createElementNS(ns, 'g');
+  g.setAttribute('class', 'note-badge');
+  g.style.cursor = 'pointer';
+  g.addEventListener('click', (e) => { e.stopPropagation(); openNotesModal(seed, cls); });
 
-  // your icon image (fallback to emoji if image fails)
-  const icon = document.createElementNS(ns, 'image');
-  icon.setAttribute('href', NOTE_ICON);
-  icon.setAttribute('x', bx);
-  icon.setAttribute('y', by);
-  icon.setAttribute('width', 24);
-  icon.setAttribute('height', 24);
-  icon.setAttribute('preserveAspectRatio', 'xMidYMid meet');
-  gBadge.appendChild(icon);
+  const img = document.createElementNS(ns, 'image');
+  img.setAttribute('href', NOTE_ICON + '?v=2');  // cache-bust if you were seeing the old circle
+  img.setAttribute('x', bx);
+  img.setAttribute('y', by);
+  img.setAttribute('width',  ICON);
+  img.setAttribute('height', ICON);
+  img.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+  g.appendChild(img);
 
-  // tiny red count dot
+  // tiny count (optional – delete this block to remove it entirely)
   const count = thread.messages.length;
   if (count > 1) {
-    const cx = bx + 22, cy = by + 4;
     const cBG = document.createElementNS(ns, 'circle');
-    cBG.setAttribute('cx', cx);
-    cBG.setAttribute('cy', cy);
-    cBG.setAttribute('r', 7);
+    cBG.setAttribute('cx', bx + ICON - 2);
+    cBG.setAttribute('cy', by + 6);
+    cBG.setAttribute('r', 6);
     cBG.setAttribute('fill', '#e5484d');
-
     const cTx = document.createElementNS(ns, 'text');
-    cTx.setAttribute('x', cx);
-    cTx.setAttribute('y', cy + 3);
+    cTx.setAttribute('x', bx + ICON - 2);
+    cTx.setAttribute('y', by + 8);
     cTx.setAttribute('text-anchor', 'middle');
     cTx.setAttribute('font-size', '9');
     cTx.setAttribute('font-family', 'system-ui, sans-serif');
     cTx.setAttribute('fill', '#fff');
     cTx.textContent = Math.min(9, count);
-
-    gBadge.appendChild(cBG);
-    gBadge.appendChild(cTx);
+    g.appendChild(cBG);
+    g.appendChild(cTx);
   }
 
-  group.appendChild(gBadge);
+  group.appendChild(g);
 }
 
-// ---------- MODAL: existing stone modal (optional) ----------
+/* ---------- STONE MODAL (minimal) ---------- */
 function ensureModal(){
   stoneModal = document.getElementById('stoneModal');
   if (!stoneModal) return;
+
   stoneGhostEl    = document.getElementById('stoneGhost');
   stoneNoteEl     = document.getElementById('stoneNote');
   stoneSaveBtn    = document.getElementById('stoneSave');
@@ -430,17 +439,29 @@ function ensureModal(){
     });
   });
 
+  // UPDATED: also seed/update a notes thread so the 📝 badge appears
   stoneSaveBtn?.addEventListener('click', () => {
     if (modalSeedId == null) return;
     const seeds = loadSeeds().map(normalizeSeed);
     const i = seeds.findIndex(s => String(s.id) === String(modalSeedId));
     if (i === -1) return;
+
+    const cls  = modalSelClass || seeds[i].class || 'yellow';
+    const note = (stoneNoteEl?.value || '').trim();
+
     if (modalSelClass) seeds[i].class = modalSelClass;
-    seeds[i].note = (stoneNoteEl?.value || '').trim();
+    seeds[i].note = note;
+
+    if (note) {
+      const thread = getThreadForClass(seeds[i], cls, true);
+      thread.messages.push({ by:'you', text: note, at: new Date().toISOString() });
+    }
+
     saveSeeds(seeds);
     renderSeeds(); renderStones(); updateGroveBadge();
     showToast('Saved'); closeStoneModal();
   });
+
   stoneDeleteBtn?.addEventListener('click', () => {
     if (modalSeedId == null) return;
     const seeds = loadSeeds().filter(s => String(s.id) !== String(modalSeedId));
@@ -458,7 +479,7 @@ function setModalOpen(open){
 function onEscClose(e){ if (e.key === 'Escape') closeStoneModal(); }
 function closeStoneModal(){ setModalOpen(false); modalSeedId = null; }
 function openStoneModal(seed){
-  if (!document.getElementById('stoneModal')) return; // optional
+  if (!document.getElementById('stoneModal')) return;
   ensureModal();
   modalSeedId   = seed.id;
   modalSelClass = seed.class || 'yellow';
@@ -472,7 +493,7 @@ function openStoneModal(seed){
   document.addEventListener('keydown', onEscClose);
 }
 
-// ---------- NOTES MODAL (threads & replies, local only) ----------
+/* ---------- NOTES MODAL ---------- */
 function ensureNotesModal(){
   notesModal = document.getElementById('notesModal');
   if (!notesModal) {
@@ -518,15 +539,11 @@ function ensureNotesModal(){
     const i = seeds.findIndex(s => String(s.id) === String(notesSeedId));
     if (i === -1) return;
     const thread = getThreadForClass(seeds[i], notesClass, true);
-    thread.messages.push({
-      by: 'you',
-      text: txt,
-      at: new Date().toISOString()
-    });
+    thread.messages.push({ by: 'you', text: txt, at: new Date().toISOString() });
     saveSeeds(seeds);
     notesInputEl.value = '';
     renderNotesList(thread);
-    renderStones(); // update badges/count
+    renderStones();
   };
 }
 function setNotesModalOpen(open){
@@ -542,10 +559,8 @@ function openNotesModal(seed, cls){
   notesClass = cls;
   const title = ({green:'🌱 Resonates', yellow:'🌿 Partially right', red:'🪦 Wrong / harmful'})[cls] || 'Notes';
   notesTitleEl.textContent = title;
-
   const thread = getThreadForClass(seed, cls, true);
   renderNotesList(thread);
-
   setNotesModalOpen(true);
 }
 function renderNotesList(thread){
@@ -572,7 +587,7 @@ function renderNotesList(thread){
   }
 }
 
-// ---------- ICONS, BADGE, ERRORS ----------
+/* ---------- ICONS, BADGE, ERRORS ---------- */
 function iconForClass(c) {
   if (c === 'green')  return { emoji:'🌱', title:'Resonates' };
   if (c === 'red')    return { emoji:'🪦', title:'Counter-memory' };
@@ -597,25 +612,8 @@ function mapErrorMessage(raw='') {
   return 'An unexpected error occurred.';
 }
 
-// demo seeds if empty
-function ensureMock() {
-  const now = Date.now();
-  let s = loadSeeds();
-  if (s.length) return s.map(normalizeSeed);
-  s = [
-    {id:now+1, class:'green',  ghost:'A good echo from the ghost.', note:'resonant'},
-    {id:now+2, class:'yellow', ghost:'Half-right and half-smudged.', note:'needs nuance'},
-    {id:now+3, class:'red',    ghost:'Confidently wrong in a familiar way.', note:'harmful'},
-    {id:now+4, class:'yellow', ghost:'Fragmented memory, polished tone.', note:'meh'},
-    {id:now+5, class:'green',  ghost:'It lands softly and true.', note:'nice'}
-  ].map(normalizeSeed);
-  saveSeeds(s);
-  return s;
-}
-
-// ---------- APP ----------
+/* ---------- APP ---------- */
 window.addEventListener('DOMContentLoaded', () => {
-  // Tabs
   const tabAsk = document.getElementById('tab-ask');
   const tabGrove = document.getElementById('tab-grove');
   const ghostSection = document.getElementById('ghostSection');
@@ -629,12 +627,11 @@ window.addEventListener('DOMContentLoaded', () => {
   tabGrove?.addEventListener('click', () => {
     tabGrove.classList.add('active'); tabAsk.classList.remove('active');
     if (ghostSection) ghostSection.hidden = true;
-    if (groveSection) groveSection.hidden = false;
+    if (groveSection)  groveSection.hidden = false;
     renderSeeds();
     renderStones();
   });
 
-  // Nudge → go to Grove
   const groveNudge  = document.getElementById('groveNudge');
   const gotoGrove   = document.getElementById('gotoGrove');
   gotoGrove?.addEventListener('click', () => {
@@ -642,7 +639,6 @@ window.addEventListener('DOMContentLoaded', () => {
     if (groveNudge) groveNudge.hidden = true;
   });
 
-  // Ask
   const askForm = document.getElementById('askForm');
   const askBtn  = document.getElementById('askBtn');
   const questionEl = document.getElementById('question');
@@ -651,7 +647,6 @@ window.addEventListener('DOMContentLoaded', () => {
   const tombText  = document.getElementById('tombstoneText');
   const skeleton  = document.getElementById('skeleton');
   const errorBox  = document.getElementById('errorBox');
-
   const classifyBox = document.getElementById('classifyBox');
 
   const plantBtn  = document.getElementById('plantBtn');
@@ -663,7 +658,6 @@ window.addEventListener('DOMContentLoaded', () => {
   });
   if (plantBtn) plantBtn.disabled = true;
 
-  // Classification chips (Ask panel)
   document.querySelectorAll('.classify button[data-class]').forEach(btn => {
     btn.addEventListener('click', () => {
       selectedClass = btn.getAttribute('data-class');
@@ -682,7 +676,6 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Submit Ask
   askForm?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const q = (questionEl?.value || '').trim();
@@ -718,9 +711,9 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Plant seed (also seeds a class-thread if note present)
+  // Plant seed (creates initial thread if a note is typed)
   plantBtn?.addEventListener('click', () => {
-    const ghost = (tombText?.textContent || '').trim();
+    const ghost = (document.getElementById('tombstoneText')?.textContent || '').trim();
     if (!ghost) { showToast('Ask the ghost first.'); return; }
     if (!selectedClass) { showToast('Choose how it felt.'); return; }
 
@@ -732,7 +725,7 @@ window.addEventListener('DOMContentLoaded', () => {
       id: Date.now(),
       class: selectedClass,
       ghost,
-      note, // legacy field
+      note,
       at: new Date().toISOString(),
       threads: []
     };
@@ -756,7 +749,6 @@ window.addEventListener('DOMContentLoaded', () => {
     updateGroveBadge();
     tabGroveBtn?.classList.add('pulse');
     setTimeout(() => tabGroveBtn?.classList.remove('pulse'), 1800);
-
     const groveNudge  = document.getElementById('groveNudge');
     if (groveNudge) {
       groveNudge.hidden = false;
@@ -767,10 +759,9 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 
     tabGrove?.click();
-    renderStones(); // update badges immediately
+    renderStones();
   });
 
-  // Grove: filters/export/import
   document.querySelectorAll('.filter-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.filter-btn').forEach(b => b.setAttribute('aria-pressed','false'));
@@ -781,7 +772,6 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Export / Import
   const exportBtn = document.getElementById('exportBtn');
   exportBtn?.addEventListener('click', () => {
     const blob = new Blob([localStorage.getItem('memorySeeds') || '[]'], { type:'application/json' });
@@ -813,18 +803,14 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Start
-  ensureModal();          // optional
-  ensureNotesModal();     // notes UI
-  migrateLegacyNotes();   // <-- make old notes show as badges
+  ensureModal();
+  ensureNotesModal();
   renderSeeds();
   updateGroveBadge();
-  const groveVisible = !document.getElementById('groveSection')?.hidden;
-  if (groveVisible) renderStones();
-
-  // Reflow stones on resize
+  const groveSectionVisible = !document.getElementById('groveSection')?.hidden;
+  if (groveSectionVisible) renderStones();
   window.addEventListener('resize', debounce(renderStones, 200));
 });
 
-// helpers
+/* helpers */
 function debounce(fn, ms=200){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; }

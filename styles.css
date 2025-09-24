@@ -192,8 +192,7 @@ button[disabled] { opacity:.6; cursor:not-allowed; }
 
   /* keep clipping, but add real inner space */
   overflow: hidden;
-  padding: 48px 32px 48px;   /* ← give the SVG breathing room */
-  box-sizing: border-box;    /* ← so the padding doesn't grow the visual height */
+  padding: 72px 40px 72px;    box-sizing: border-box;    /* ← so the padding doesn't grow the visual height */
 
   width: 100%;
   height: calc(100vh - 160px);
