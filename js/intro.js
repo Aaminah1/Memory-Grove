@@ -188,3 +188,312 @@ setTimeout(() => {
   addEventListener('resize', onScroll);
   onScroll();
 })();
+
+// mark when the gauntlet is on screen → relax global veil, show FX
+(() => {
+  const gauntlet = document.getElementById('gauntlet');
+  if (!gauntlet) return;
+
+  const body = document.body;
+  const io = new IntersectionObserver(([e])=>{
+    if (!e) return;
+    if (e.isIntersecting) body.classList.add('in-gauntlet');
+    else                  body.classList.remove('in-gauntlet');
+  }, { threshold: 0.05 });
+  io.observe(gauntlet);
+
+  // drive the local gauntlet veil (0→1 across the section)
+  const onScroll = () => {
+    const r = gauntlet.getBoundingClientRect();
+    const vh = Math.max(1, innerHeight);
+    const prog = Math.max(0, Math.min(1, (vh - r.top) / (r.height + vh)));
+    const eased = prog*prog*(3 - 2*prog);
+    gauntlet.style.setProperty('--gVeil', (0.55 + 0.45*eased).toFixed(3));
+  };
+  addEventListener('scroll', onScroll, { passive:true });
+  addEventListener('resize', onScroll);
+  onScroll();
+})();
+// --- Overwhelm section: FX only (sparkles + glyphs). Swarm OFF for now.
+(() => {
+  const gauntlet = document.getElementById('gauntlet');
+  const swarmWrap = document.getElementById('ghostSwarm');
+  if (!gauntlet) return;
+
+  // ensure it's empty (in case something was appended before)
+  if (swarmWrap) swarmWrap.replaceChildren();
+
+  // 1) Floating glyphs (keep this)
+ (function makeGlyphs(){
+  // <- grab the glyph container inside #gauntlet
+  const host = document.querySelector('#gauntlet .fx-glyphs');
+  if (!host) return;
+
+  const chars = ['0','1','∑','λ','≈','?','β','ξ','ψ','π','Δ'];
+  const N = 34; // density
+  for (let i=0;i<N;i++){
+    const el = document.createElement('div');
+    el.className = 'g';
+    el.textContent = chars[Math.floor(Math.random()*chars.length)];
+
+    // random placement + motion dials (via CSS vars)
+    el.style.setProperty('--x',    `${Math.random()*100}%`);
+    el.style.setProperty('--dur',  `${14 + Math.random()*16}s`);
+    el.style.setProperty('--sway', `${6  + Math.random()*7}s`);
+    el.style.setProperty('--glow', `${4  + Math.random()*5}s`);
+
+    // ± horizontal drift amplitude
+    const dx = (Math.random()<0.5 ? -1 : 1) * (6 + Math.random()*12);
+    el.style.setProperty('--dx', `${dx}vw`);
+
+    // desync start times
+    el.style.animationDelay = `${Math.random()*-18}s`;
+
+    host.appendChild(el);
+  }
+})();
+
+
+  // 2) (Intentionally disabled) mini-ghost swarm
+  // When you're ready to add it back:
+  // - move the spawnWave/onScroll/tick code into a block guarded by a flag
+  // - e.g., if (ENABLE_SWARM) { ... }
+})();
+// === One slow follower ghost (appears in gauntlet) ===
+
+(() => {
+  if (window.__FOLLOWER_FLOCK__) return;
+  window.__FOLLOWER_FLOCK__ = true;
+
+  const gauntlet = document.getElementById('gauntlet');
+  const host = document.getElementById('ghostSwarm') || gauntlet;
+  if (!gauntlet || !host) return;
+
+  const BASE_LINES = [
+    "Need a shortcut?","Summarize this?","I can translate that.","Draft a reply?",
+    "Want recommendations?","Verify with humans?","Auto-complete this?","Compare?",
+    "Estimate result?","I can explain."
+  ];
+
+  const rand = (a,b)=> a + Math.random()*(b-a);
+  function heroSvgInner(){ return document.querySelector('#ghost .sprite')?.innerHTML || ''; }
+  function makeNode(scale=0.75, hueDeg=0, opacity=0.85){
+    const el = document.createElement('div');
+    el.className = 'followerGhost';
+    el.innerHTML = `<div class="sprite">${heroSvgInner()}</div><div class="askBubble" role="status" aria-live="polite"></div>`;
+    el.style.transform = `translate(-50%,-50%) scale(${scale})`;
+    if (hueDeg) el.style.filter = `hue-rotate(${hueDeg}deg) drop-shadow(0 10px 24px rgba(0,0,0,.55))`;
+    el.style.opacity = String(opacity);
+    el.style.transition = 'opacity 420ms ease, transform 420ms cubic-bezier(.23,1,.32,1)';
+    el.style.opacity = '0';                 // start hidden (fade-in on spawn)
+    return el;
+  }
+
+ const CONFIG = {
+  // spawn & count
+  count: 5,
+  spawnStaggerMs: 850,   // one-by-one cadence
+
+  // motion
+  baseSpeedK: 0.035,
+  maxStep: 20,
+  idleMs: 1100,
+
+  // soft separation (steering)
+  sepRadius: 120,        // how far they “feel” each other
+  sepForce: 0.16,
+  sepBoostMs: 1400,
+  sepBoostMul: 2.2,
+
+  // hard no-overlap (relaxation)
+  noOverlapRadius: 160,  // strict min center-to-center distance
+  relaxIters: 4,         // small pushes per frame
+  boundsPad: 24,         // keep a little off the edges
+
+  // speaking cadence
+  askIdle: [700, 1200],
+  askMove: [1100, 1900],
+};
+
+  const HU = [0, 24, 60, -18, 90, 140]; // hues
+  const flock = [];                     // { el,bubble,x,y,vx,vy,k,lines,bornAt }
+
+  // visibility gate
+  let inView = false;
+  new IntersectionObserver(([e])=>{ inView = !!e?.isIntersecting; }, { threshold: 0.05 }).observe(gauntlet);
+
+  // targets
+  let aimX = innerWidth/2, aimY = innerHeight/2, lastMoveTs = performance.now(), lastScrollY = scrollY;
+  const markActive = ()=>{ lastMoveTs = performance.now(); flock.forEach(f=>f.el.classList.remove('idle')); };
+  addEventListener('mousemove', e => { aimX=e.clientX; aimY=e.clientY; markActive(); }, {passive:true});
+  addEventListener('touchmove', e => { const t=e.touches[0]; if(t){ aimX=t.clientX; aimY=t.clientY; markActive(); }}, {passive:true});
+  addEventListener('scroll', () => { if (Math.abs(scrollY-lastScrollY)>2){ lastScrollY=scrollY; markActive(); }}, {passive:true});
+  addEventListener('resize', () => { aimX=innerWidth/2; aimY=innerHeight/2; });
+
+  // place on a ring around center so they don't overlap at birth
+  function pickSpawnPos(i){
+    const ringR = 90 + i*18;                         // grow ring radius per ghost
+    let tries = 0;
+    while (true){
+      const theta = (i/flock.length)*Math.PI*2 + rand(-0.5,0.5);  // spread with jitter
+      const x = innerWidth/2  + Math.cos(theta)*ringR + rand(-6,6);
+      const y = innerHeight/2 + Math.sin(theta)*ringR + rand(-6,6);
+
+      // check distance to already spawned ghosts
+      let ok = true;
+      for (const g of flock){
+        const d = Math.hypot(x-g.x, y-g.y);
+        if (d < CONFIG.sepRadius*0.9){ ok = false; break; }
+      }
+      if (ok || tries++ > 12) return {x,y};
+    }
+  }
+
+  // speech cadence
+  function scheduleSpeak(f){
+    const idle = f.el.classList.contains('idle');
+    const [a,b] = idle ? CONFIG.askIdle : CONFIG.askMove;
+    f._speakTimer = setTimeout(()=> speak(f), Math.floor(rand(a,b)));
+  }
+  function speak(f){
+    if (!inView) return scheduleSpeak(f);
+    const line = f.lines[Math.floor(Math.random()*f.lines.length)];
+    f.bubble.textContent = line;
+    f.bubble.classList.add('show');
+    setTimeout(()=> f.bubble.classList.remove('show'), 1400);
+    scheduleSpeak(f);
+  }
+
+  // spawn one, then schedule next
+  function spawnOne(i, total){
+    const scale = rand(0.64,0.82);
+    const hue   = HU[i % HU.length];
+    const el    = makeNode(scale, hue, 0.9);
+    host.appendChild(el);
+
+    const bubble = el.querySelector('.askBubble');
+    // tiny vertical offset per ghost so bubbles don't stack perfectly
+    bubble.style.marginTop = `${8 + i*4}px`;
+
+    // figure starting position
+    // note: during the loop, flock.length is current count (already spawned)
+    const pos = pickSpawnPos(i || 0);
+    const g = { el, bubble, x: pos.x, y: pos.y, vx:0, vy:0, k: CONFIG.baseSpeedK*rand(0.9,1.12), lines: BASE_LINES.slice(), bornAt: performance.now() };
+    flock.push(g);
+
+    // entrance: slight zoom+fade
+    requestAnimationFrame(()=>{
+      el.style.opacity = '0.88';
+      el.style.transform = `translate(-50%,-50%) scale(${scale})`;
+      el.classList.add('show');
+    });
+
+    // start speech a beat after entrance
+    setTimeout(()=> scheduleSpeak(g), 380);
+
+    // chain next spawn
+    if (i+1 < total){
+      setTimeout(()=> spawnOne(i+1, total), CONFIG.spawnStaggerMs);
+    }
+  }
+
+  // kick off the stagger
+  spawnOne(0, CONFIG.count);
+function relaxCollisions(list){
+  const R = CONFIG.noOverlapRadius;
+  const R2 = R*R;
+  for (let i=0;i<list.length;i++){
+    const A = list[i];
+    for (let j=i+1;j<list.length;j++){
+      const B = list[j];
+      const dx = A.x - B.x, dy = A.y - B.y;
+      const d2 = dx*dx + dy*dy;
+      if (d2 > 0 && d2 < R2){
+        const d = Math.sqrt(d2) || 1;
+        const overlap = (R - d) * 0.5;   // split the push
+        const nx = dx / d, ny = dy / d;
+        A.x += nx * overlap;
+        A.y += ny * overlap;
+        B.x -= nx * overlap;
+        B.y -= ny * overlap;
+        // damp their velocities so they don't slingshot back together
+        A.vx *= 0.7; A.vy *= 0.7;
+        B.vx *= 0.7; B.vy *= 0.7;
+      }
+    }
+  }
+}
+
+function clampToViewport(list){
+  const L = CONFIG.boundsPad, R = innerWidth - CONFIG.boundsPad;
+  const T = CONFIG.boundsPad, B = innerHeight - CONFIG.boundsPad;
+  for (const g of list){
+    if (g.x < L) { g.x = L; g.vx = Math.abs(g.vx)*0.4; }
+    if (g.x > R) { g.x = R; g.vx = -Math.abs(g.vx)*0.4; }
+    if (g.y < T) { g.y = T; g.vy = Math.abs(g.vy)*0.4; }
+    if (g.y > B) { g.y = B; g.vy = -Math.abs(g.vy)*0.4; }
+  }
+}
+
+  function tick(){
+  const now = performance.now();
+  const idle = (now - lastMoveTs) > CONFIG.idleMs;
+  flock.forEach(f => f.el.classList.toggle('idle', idle));
+  if (idle){ // drift back to center if user goes still
+    aimX += (innerWidth/2  - aimX)*0.02;
+    aimY += (innerHeight/2 - aimY)*0.02;
+  }
+
+  // 1) homing + separation forces (soft)
+  for (let i=0;i<flock.length;i++){
+    const A = flock[i];
+    let ax = (aimX - A.x) * A.k;
+    let ay = (aimY - A.y) * A.k;
+
+    // steering separation
+    for (let j=0;j<flock.length;j++){
+      if (i===j) continue;
+      const B = flock[j];
+      const dx = A.x - B.x, dy = A.y - B.y;
+      const d2 = dx*dx + dy*dy, r = CONFIG.sepRadius;
+      if (d2 > 0 && d2 < r*r){
+        const d = Math.sqrt(d2);
+        const push = (1 - d/r) * CONFIG.sepForce;
+        ax += (dx/(d||1)) * push * 10;
+        ay += (dy/(d||1)) * push * 10;
+      }
+    }
+
+    // integrate
+    A.vx = (A.vx + ax);
+    A.vy = (A.vy + ay);
+
+    // speed clamp
+    const step = Math.hypot(A.vx, A.vy);
+    if (step > CONFIG.maxStep){
+      const s = CONFIG.maxStep/(step||1); A.vx*=s; A.vy*=s;
+    }
+
+    A.x += A.vx; A.y += A.vy;
+    A.vx *= 0.86; A.vy *= 0.86;
+  }
+
+  // 2) hard no-overlap: a few small relaxation passes
+  for (let k=0;k<CONFIG.relaxIters;k++){
+    relaxCollisions(flock);
+  }
+
+  // 3) keep them inside the viewport slightly padded
+  clampToViewport(flock);
+
+  // 4) paint
+  for (const g of flock){
+    g.el.style.left = `${g.x}px`;
+    g.el.style.top  = `${g.y}px`;
+  }
+
+  requestAnimationFrame(tick);
+}
+
+  tick();
+})();

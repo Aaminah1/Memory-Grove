@@ -623,30 +623,6 @@ window.addEventListener('DOMContentLoaded', () => {
   const tabGrove = document.getElementById('tab-grove');
   const ghostSection = document.getElementById('ghostSection');
   const groveSection = document.getElementById('groveSection');
-// Deep-link support from intro (app.html#ask or #grove)
-const openByHash = () => {
-  const h = (location.hash || '').toLowerCase();
-  if (h.includes('grove')) {
-    tabGrove?.click();
-  } else {
-    tabAsk?.click(); // default
-  }
-};
-openByHash();
-window.addEventListener('hashchange', openByHash);
-
-  tabAsk?.addEventListener('click', () => {
-    tabAsk.classList.add('active'); tabGrove.classList.remove('active');
-    if (ghostSection) ghostSection.hidden = false;
-    if (groveSection) groveSection.hidden = true;
-  });
-  tabGrove?.addEventListener('click', () => {
-    tabGrove.classList.add('active'); tabAsk.classList.remove('active');
-    if (ghostSection) ghostSection.hidden = true;
-    if (groveSection)  groveSection.hidden = false;
-    renderSeeds();
-    renderStones();
-  });
 
   const groveNudge  = document.getElementById('groveNudge');
   const gotoGrove   = document.getElementById('gotoGrove');
@@ -873,3 +849,34 @@ askForm?.addEventListener('submit', async (e) => {
 
 /* helpers */
 function debounce(fn, ms=200){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; }
+// ---- Hash router: #ask / #grove ----
+(() => {
+  const askPanel   = document.getElementById('ghostSection');
+  const grovePanel = document.getElementById('groveSection');
+  const tabAsk     = document.getElementById('tab-ask');
+  const tabGrove   = document.getElementById('tab-grove');
+
+  function show(which) { // 'ask' | 'grove'
+    const isAsk = (which !== 'grove'); // default to ask
+    if (askPanel)   askPanel.hidden   = !isAsk;
+    if (grovePanel) grovePanel.hidden =  isAsk;
+
+    // optional tab highlighting
+    if (tabAsk)   tabAsk.classList.toggle('active',  isAsk);
+    if (tabGrove) tabGrove.classList.toggle('active', !isAsk);
+      if (!isAsk) { renderSeeds(); renderStones(); } 
+  }
+
+  function syncFromHash() {
+    const h = (location.hash || '#ask').slice(1).toLowerCase();
+    show(h === 'grove' ? 'grove' : 'ask');
+  }
+
+  // react to URL changes & on first load
+  window.addEventListener('hashchange', syncFromHash);
+  document.addEventListener('DOMContentLoaded', syncFromHash);
+
+  // make header tabs change the hash (so links/bookmarks work)
+  tabAsk?.addEventListener('click',  () => { location.hash = '#ask';  });
+  tabGrove?.addEventListener('click',() => { location.hash = '#grove';});
+})();
