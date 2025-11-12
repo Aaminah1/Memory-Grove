@@ -181,20 +181,41 @@ position: absolute;
 /* blink (subtle/desynced) */
 #ghost .eye{
   transform-origin:center; transform-box: fill-box;
-  animation: eyeBlink 6.2s steps(1,end) infinite;
+  /* default faster rhythm; JS will randomize per-eye */
+  animation: eyeBlink var(--blinkDur, 4.2s) steps(1,end) infinite;
 }
-@keyframes eyeBlink{
-  0%, 92%, 100% { transform: scaleY(1) }
-  93%          { transform: scaleY(0.12) }
-  94%          { transform: scaleY(1) }
-}
-#ghost .eye:nth-of-type(2){ animation-delay: 1.4s; }
-@keyframes eyeBlink{
-  0%, 92%, 100% { transform: scaleY(1) }
-  93%          { transform: scaleY(0.15) }
-  94%          { transform: scaleY(1) }
+#ghost .eye:nth-of-type(2){
+  /* desync the second eye slightly */
+  animation-delay: var(--blinkDelay, 1.0s);
 }
 
+/* base single-blink pattern */
+@keyframes eyeBlink{
+  0%, 90%, 100% { transform: scaleY(1) }
+  91%           { transform: scaleY(0.12) }
+  92%           { transform: scaleY(1) }
+}
+#ghost.blink-now .eye{
+  animation: blinkNow 120ms steps(1,end) 1;
+}
+@keyframes blinkNow{
+  0%   { transform: scaleY(1) }
+  50%  { transform: scaleY(0.10) }
+  100% { transform: scaleY(1) }
+}
+
+/* optional “double-blink” pattern for variety */
+#ghost.double-blink .eye{
+  animation: blinkDouble 240ms steps(1,end) 1;
+}
+@keyframes blinkDouble{
+  0%   { transform: scaleY(1) }
+  15%  { transform: scaleY(0.12) }
+  30%  { transform: scaleY(1) }
+  60%  { transform: scaleY(0.12) }
+  85%  { transform: scaleY(1) }
+  100% { transform: scaleY(1) }
+}
 /* talk while speaking */
 #ghost.speaking .mouth{
   transform-origin:center; transform-box:fill-box;

@@ -497,3 +497,211 @@ function clampToViewport(list){
 
   tick();
 })();
+// =================== PIED PIPER GHOSTS ===================
+// - Starts with 1 follower
+// - As you progress through #gauntlet (or simply spend time there), more join
+// - New ghosts spawn from LEFT/RIGHT edges and merge into a trailing line
+// - Each ghost asks short questions on a quick cadence
+// Requires: #gauntlet, #ghostSwarm, and #ghost .sprite (SVG template)
+(() => {
+  if (window.__PIPER__) return; window.__PIPER__ = true;
+
+  const gauntlet = document.getElementById('gauntlet');
+  const host = document.getElementById('ghostSwarm') || gauntlet;
+  if (!gauntlet || !host) return;
+
+  const spriteInner = document.querySelector('#ghost .sprite')?.innerHTML || '';
+  if (!spriteInner) return;
+
+  // ------------------ DIALS ------------------
+  const CFG = {
+    startCount: 1,           // begin with one tail
+    maxCount: 12,            // hard cap
+    joinEveryMs: 1800,       // time-based fallback pacing
+    slotGap: 64,             // distance between ghosts in the line (px)
+    laneJitter: 16,          // slight vertical wobble per ghost so it’s not too rigid
+    baseK: 0.12,             // follow stiffness → higher = snappier
+    maxStep: 22,             // speed clamp
+    idleMs: 900,             // how quickly we consider the user “still”
+    boundsPad: 18,           // keep a bit offscreen edges
+    // speech cadence (short + lively)
+    sayIdle: [950, 1500],
+    sayMove: [1200, 2000]
+  };
+
+  // things they say
+  const LINES = [
+    "Need a shortcut?","Summarize this?","Draft a reply?","Compare?",
+    "I can translate that.","Estimate result?","Find assumptions?",
+    "Edge cases?","Tone-match this?","Verify with humans?"
+  ];
+
+  // tint variety
+  const HUES = [0, 18, -12, 36, -24, 60, 90];
+
+  // ------------------ STATE ------------------
+  const flock = []; // {el,bubble,x,y,vx,vy,k,hue,lane,askTimer}
+  let inView = false;
+  let desiredCount = CFG.startCount;   // grows with progress
+  let lastJoinTs = performance.now();
+
+  // progress in gauntlet (0..1) — also used by your veil code; we reuse the same idea
+  let gauntletProg = 0;
+
+  // Observe gauntlet visibility and compute progress
+  new IntersectionObserver(([e]) => { inView = !!e?.isIntersecting; }, {threshold:0.05}).observe(gauntlet);
+
+  const measureProg = () => {
+    const r = gauntlet.getBoundingClientRect();
+    const vh = Math.max(1, innerHeight);
+    const p  = Math.max(0, Math.min(1, (vh - r.top) / (r.height + vh)));
+    gauntletProg = p;
+    // grow desired count with progress (slow at first, faster later)
+    const target = CFG.startCount + Math.floor(Math.pow(p, 0.8) * (CFG.maxCount - CFG.startCount));
+    desiredCount = Math.max(desiredCount, Math.min(CFG.maxCount, target));
+  };
+  addEventListener('scroll', measureProg, {passive:true});
+  addEventListener('resize', measureProg);
+  measureProg();
+
+  // cursor/leader target
+  let aimX = innerWidth/2, aimY = innerHeight/2, lastMoveTs = performance.now(), lastScrollY = scrollY;
+  const markActive = () => { lastMoveTs = performance.now(); };
+  addEventListener('mousemove', e => { aimX=e.clientX; aimY=e.clientY; markActive(); }, {passive:true});
+  addEventListener('touchmove', e => { const t=e.touches[0]; if(t){ aimX=t.clientX; aimY=t.clientY; markActive(); }}, {passive:true});
+  addEventListener('scroll', () => { if (Math.abs(scrollY-lastScrollY)>1){ lastScrollY=scrollY; markActive(); }}, {passive:true});
+  addEventListener('resize', () => { aimX=innerWidth/2; aimY=innerHeight/2; });
+
+  // ------------------ HELPERS ------------------
+  const rand = (a,b)=> a + Math.random()*(b-a);
+  const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+
+  function makeGhost(i){
+    const el = document.createElement('div');
+    el.className = 'followerGhost';
+    el.style.opacity = '0';
+    el.innerHTML = `<div class="sprite">${spriteInner}</div><div class="askBubble" role="status" aria-live="polite"></div>`;
+    const hue = HUES[i % HUES.length];
+    el.style.filter = `hue-rotate(${hue}deg) drop-shadow(0 10px 24px rgba(0,0,0,.55))`;
+    host.appendChild(el);
+
+    // spawn from LEFT or RIGHT edge, mid band
+    const side = Math.random()<0.5 ? 'L' : 'R';
+    const x = side==='L' ? -0.08*innerWidth : innerWidth * 1.08;
+    const y = rand(innerHeight*0.28, innerHeight*0.72);
+
+    // show with a little pop
+    requestAnimationFrame(()=>{ el.classList.add('show'); });
+
+    return {
+      el,
+      bubble: el.querySelector('.askBubble'),
+      x, y,
+      vx: 0, vy: 0,
+      k: CFG.baseK * rand(0.85, 1.15),
+      hue,
+      // each ghost claims a lane offset so the line has subtle variation
+      lane: rand(-CFG.laneJitter, CFG.laneJitter),
+      askTimer: 0
+    };
+  }
+
+  function scheduleSpeak(g){
+    const idle = (performance.now() - lastMoveTs) > CFG.idleMs;
+    const [a,b] = idle ? CFG.sayIdle : CFG.sayMove;
+    const ms = Math.floor(rand(a,b));
+    clearTimeout(g.askTimer);
+    g.askTimer = setTimeout(() => {
+      const line = LINES[Math.floor(Math.random()*LINES.length)];
+      g.bubble.textContent = line;
+      g.bubble.classList.add('show');
+      setTimeout(()=> g.bubble.classList.remove('show'), 1300);
+      scheduleSpeak(g);
+    }, ms);
+  }
+
+  // ------------------ SPAWNER ------------------
+  function trySpawn(){
+    const now = performance.now();
+    if (!inView) return;
+    if (flock.length >= desiredCount) return;
+    if (now - lastJoinTs < CFG.joinEveryMs) return;
+
+    const g = makeGhost(flock.length);
+    flock.push(g);
+    lastJoinTs = now;
+    // first line after entrance
+    setTimeout(()=> scheduleSpeak(g), 400);
+  }
+
+  // ------------------ LOOP ------------------
+  function tick(){
+    trySpawn();
+    measureProg();
+
+    const now = performance.now();
+    const dtStill = now - lastMoveTs;
+    const idle = dtStill > CFG.idleMs;
+
+    // direction of motion (to place slots behind)
+    // approximate by easing toward aim
+    // If idle, gently relax the leader toward center
+    if (idle){
+      aimX += (innerWidth/2  - aimX) * 0.02;
+      aimY += (innerHeight/2 - aimY) * 0.02;
+    }
+
+    // compute heading from last ghost (or from a small history)
+    // simpler: pull a pseudo-heading from recent cursor delta
+    // we’ll keep a small low-pass of aim movement
+    tick._hx = (tick._hx ?? aimX);
+    tick._hy = (tick._hy ?? aimY);
+    const f = 0.25; // smoothing
+    const hx = tick._hx = tick._hx*(1-f) + aimX*f;
+    const hy = tick._hy = tick._hy*(1-f) + aimY*f;
+
+    // heading vector (pointing where the user is)
+    let dx = aimX - hx, dy = aimY - hy;
+    let len = Math.hypot(dx,dy) || 1;
+    dx /= len; dy /= len;
+
+    // slot positions for each ghost (behind the leader), with small lane jitter
+    // slot i is (i+1) gaps behind
+    for (let i=0;i<flock.length;i++){
+      const g = flock[i];
+      const slotsBack = (i+1);
+      const tx = aimX - dx * CFG.slotGap * slotsBack;
+      const ty = aimY - dy * CFG.slotGap * slotsBack + g.lane;
+
+      // steer
+      const ax = (tx - g.x) * g.k;
+      const ay = (ty - g.y) * g.k;
+      g.vx = (g.vx + ax);
+      g.vy = (g.vy + ay);
+
+      // clamp speed
+      const sp = Math.hypot(g.vx,g.vy);
+      if (sp > CFG.maxStep){
+        const s = CFG.maxStep / (sp||1); g.vx*=s; g.vy*=s;
+      }
+
+      g.x += g.vx; g.y += g.vy;
+      g.vx *= 0.86; g.vy *= 0.86;
+
+      // keep inside viewport with padding
+      const L = CFG.boundsPad, R = innerWidth - CFG.boundsPad;
+      const T = CFG.boundsPad, B = innerHeight - CFG.boundsPad;
+      if (g.x < L){ g.x = L; g.vx = Math.abs(g.vx)*0.4; }
+      if (g.x > R){ g.x = R; g.vx = -Math.abs(g.vx)*0.4; }
+      if (g.y < T){ g.y = T; g.vy = Math.abs(g.vy)*0.4; }
+      if (g.y > B){ g.y = B; g.vy = -Math.abs(g.vy)*0.4; }
+
+      // paint
+      g.el.style.left = `${g.x}px`;
+      g.el.style.top  = `${g.y}px`;
+    }
+
+    requestAnimationFrame(tick);
+  }
+  tick();
+})();

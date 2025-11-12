@@ -10,6 +10,40 @@
   if (!titleEl || !ghostEl) return;
 
   /* ---------- utils ---------- */
+  function setupBlinkRandomization(){
+  const ghostEl  = document.getElementById('ghost');
+  if (!ghostEl) return;
+
+  // randomize baseline rhythm a little each load
+  const baseDur   = 3.6 + Math.random()*1.2;  // 3.6–4.8s
+  const baseDelay = 0.7 + Math.random()*0.6;  // 0.7–1.3s
+  ghostEl.style.setProperty('--blinkDur',   `${baseDur.toFixed(2)}s`);
+  ghostEl.style.setProperty('--blinkDelay', `${baseDelay.toFixed(2)}s`);
+
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+  // every 2–5s: nudge a quick blink
+  (function blinkLoop(){
+    const wait = 2000 + Math.random()*3000;
+    setTimeout(() => {
+      ghostEl.classList.add('blink-now');
+      // clear quickly so CSS can reapply next time
+      setTimeout(() => ghostEl.classList.remove('blink-now'), 160);
+      blinkLoop();
+    }, wait);
+  })();
+
+  // sometimes do a "double-blink" (every 8–14s)
+  (function dblLoop(){
+    const wait = 8000 + Math.random()*6000;
+    setTimeout(() => {
+      ghostEl.classList.add('double-blink');
+      setTimeout(() => ghostEl.classList.remove('double-blink'), 260);
+      dblLoop();
+    }, wait);
+  })();
+}
+
 const sleep = (ms)=> new Promise(r=>setTimeout(r, ms));
 function waitForTransitionEnd(el, timeout=800){
   return new Promise(resolve=>{
@@ -373,7 +407,7 @@ window.addEventListener('intro:reveal-done', async () => {
  await runSpeechThenFragments();
 
 startWanderMode();
-
+  setupBlinkRandomization();
   // 5) Ambient glitches/evil pulses in the background
   scheduleAmbientGlitches();
 });
