@@ -8,33 +8,66 @@
   opacity: 0;
   transition: opacity 700ms ease, transform 900ms cubic-bezier(.2,.9,.1,1);
   pointer-events: none;
-  z-index: 20;
+  z-index: 9999; /* 🔥 higher than any title/effects */
 }
 #ghost.on{ opacity:1; transform: translateX(-50%) }
 
-/* sprite size + idle life */
+/* Sprite stays hidden until .ready */
 #ghost .sprite{
-  width: clamp(120px, 14vw, 178px);
+  position: relative;
+  width: clamp(160px, 22vw, 300px);
   height: auto;
-  z-index:1;
-  opacity: 0; transition: opacity 380ms ease;
-  /* alive: slow bob + tiny breathe + tilt */
+  opacity: 0;
+  transition: opacity 380ms ease;
   animation:
     ghostBob 6.4s ease-in-out infinite,
     ghostBreathe 5.2s ease-in-out infinite,
     ghostTilt 11s ease-in-out infinite;
-  filter: drop-shadow(0 8px 24px rgba(255,255,255,.08));
+  filter: drop-shadow(0 10px 28px rgba(255,255,255,.10));
+  z-index: 1;
 }
 #ghost.ready .sprite { opacity: 1; }
 
-/* entrance canvas */
-#ghost canvas.assemble {
-  position: absolute; inset: 2;
-  width: 140px; height: 170px;
-  margin: auto;
-  filter: blur(.2px);
-  pointer-events: none;
+/* ————— ELECTRIC INTRO OVERLAY ————— */
+#ghost .electric-intro{
+  position:absolute; left:50%; top:50%;
+  transform:translate(-50%, -50%);
+  width: min(34vw, 420px);
+  height: min(34vw, 420px);
+  pointer-events:none;
+  z-index: 40;                  /* above sprite and speech bubble */
+  mix-blend-mode: screen;       /* pops on dark bg */
+  filter: drop-shadow(0 0 20px rgba(120,200,255,.35));
 }
+
+/* subtle glow on the ghost body while charging */
+#ghost.charging .sprite{
+  filter:
+    drop-shadow(0 0 24px rgba(120,200,255,.35))
+    drop-shadow(0 0 40px rgba(120,200,255,.20));
+}
+
+/* waveform dash animate */
+@keyframes dashFlow {
+  0%   { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: -600; }
+}
+
+/* bolt flicker scale/jitter */
+@keyframes boltPulse {
+  0%, 100% { opacity: .85; transform: translate(-50%, -50%) scale(1); }
+  50%      { opacity: 1;    transform: translate(-50%, -50%) scale(1.03); }
+}
+
+/* post-birth settle shimmer */
+@keyframes settleGlow {
+  0% { filter: drop-shadow(0 0 34px rgba(120,200,255,.35)); }
+  100%{ filter: drop-shadow(0 0 10px rgba(120,200,255,.12)); }
+}
+
+/* make sure the ghost is on top of background */
+#ghost{ z-index: 20; }
+
 
 @keyframes ghostBob   { 0%,100%{ transform: translateY(0) } 50%{ transform: translateY(-7px) } }
 @keyframes ghostBreathe{

@@ -144,28 +144,54 @@
   }
 
   // ===== MASTER TIMELINE =====
-  // Your intro.js should dispatch this when the title is fully revealed.
-  window.addEventListener('intro:reveal-done', async () => {
-    // 1) Let your MEMORY + GROVE/GRAVE stuff play out first (adjust this delay if needed)
-    await sleep(7000); // <-- tweak this to match your earlier title effects timing
+// ===== MASTER TIMELINE =====
+window.addEventListener('intro:reveal-done', async () => {
+  const sleep = (ms)=> new Promise(r=>setTimeout(r, ms));
 
-    // 2) GROVE → GHOST (guaranteed)
-    await cueGroveToGhostOnce(2000);
+  // 0) Let your MEMORY / GROVE-GRAVE intro play first
+  await sleep(7000); // adjust to your title timing
 
-    // 3) Assemble vortex (only after the cue finishes)
-    if (typeof window.ghostAssembleEntrance === 'function'){
-      window.ghostAssembleEntrance({ duration: 1500 });
-    }
+  // 1) Flash GROVE → GHOST (your existing cue)
+  await cueGroveToGhostOnce(2000); // ~2s
 
-    // 4) After assemble ends, the SVG sprite fades in via CSS (#ghost.ready .sprite)
-    //    ghost-assemble.js sets #ghost.ready when it finishes.
-    //    Give it a short buffer before speech:
-    await sleep(1800);
+  // 2) Jumpscare slam (then continue)
+   if (typeof window.ghostElectricIntro === 'function') {
+    await window.ghostElectricIntro({
+      duration: 1500,  // try 1800 for more drama
+      hold: 220,
+      size: 1.35,      // visual scale of the overlay
+      bolts: 5,
+      waves: 3
+    });
+  }
 
-    // 5) Speech + then fragments
-    runSpeechThenFragments();
+  // 3) Assemble burst (promise-safe: works whether assemble returns a Promise or not)
+  const DUR = 2200, HOLD = 350, BUF = 120; // keep these in sync with your assemble dials
+  let assembleResult;
+  if (typeof window.ghostAssembleEntrance === 'function') {
+    assembleResult = window.ghostAssembleEntrance({
+      duration: DUR,
+      hold: HOLD,
+      scale: 1.35,
+      count: 520
+    });
+  }
 
-    // 6) Background life (evil/glitch pulses)
-    scheduleAmbientGlitches();
-  });
+  if (assembleResult && typeof assembleResult.then === 'function') {
+    // assemble returns a Promise → await it
+    await assembleResult;
+  } else {
+    // assemble is fire-and-forget → wait for its duration + hold + buffer
+    await sleep(DUR + HOLD + BUF);
+  }
+
+  // 4) Slight buffer, then speech + fragments
+  await sleep(250);
+  runSpeechThenFragments();
+
+  // 5) Ambient glitches/evil pulses in the background
+  scheduleAmbientGlitches();
+});
+
+
 })();

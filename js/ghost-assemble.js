@@ -1,131 +1,151 @@
-// js/ghost-assemble.js — vortex of glyphs assembles into the ghost (Promise API)
+// js/ghost-electric.js — Electric/Frequency emergence for the ghost (one-shot)
 (() => {
   const ghost = document.getElementById('ghost');
   if (!ghost) return;
 
-  const sprite = ghost.querySelector('.sprite');
-  let ranOnce = false;
+  function randomBoltPath(w, h, cx, cy){
+    // lightning-ish from edge toward center
+    const startSide = Math.floor(Math.random()*4);
+    let x = (startSide===0)? 0 : (startSide===1? w : (startSide===2? Math.random()*w : Math.random()*w));
+    let y = (startSide===0)? Math.random()*h : (startSide===1? Math.random()*h : (startSide===2? 0 : h));
+    const pts = [`M ${x.toFixed(1)} ${y.toFixed(1)}`];
+    const steps = 7 + (Math.random()*6|0);
+    for (let i=0;i<steps;i++){
+      const t = (i+1)/steps;
+      // lerp toward center with jitter
+      const tx = x + (cx-x)*t + (Math.random()-0.5)*22;
+      const ty = y + (cy-y)*t + (Math.random()-0.5)*22;
+      pts.push(`L ${tx.toFixed(1)} ${ty.toFixed(1)}`);
+    }
+    return pts.join(' ');
+  }
 
-  async function ghostAssembleEntrance(opts = {}) {
-    // Prevent double-runs
-    if (ranOnce) return Promise.resolve();
-    ranOnce = true;
+  function makeSine(d, amp, freq, phase, steps){
+    const pts = [];
+    for (let i=0;i<=steps;i++){
+      const t = i/steps;
+      const x = d.x0 + t*(d.x1-d.x0);
+      const y = d.y0 + t*(d.y1-d.y0) + Math.sin(t*freq*2*Math.PI + phase)*amp;
+      pts.push(`${i===0?'M':'L'} ${x.toFixed(1)} ${y.toFixed(1)}`);
+    }
+    return pts.join(' ');
+  }
 
-    const DUR    = opts.duration ?? 1500;      // ms for swirl-in
-    const COUNT  = opts.count ?? 230;          // particles
-    const R_MIN  = opts.rMin ?? 70;
-    const R_MAX  = opts.rMax ?? 120;
-    const CHARSET = opts.charset ?? "01#@&%+=*•·<>/\\{}[]()ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  function ghostElectricIntro(opts = {}){
+    const DUR     = opts.duration ?? 1400;           // total time of effect
+    const HOLD    = opts.hold     ?? 200;            // linger before fade
+    const SIZE    = opts.size     ?? 1.25;           // overlay scale vs sprite
+    const BOLTS   = opts.bolts    ?? 4;              // # of lightning bolts
+    const WAVES   = opts.waves    ?? 3;              // # of oscillating waves
+    const onDone  = opts.after    ?? (()=>{});
 
-    // Ensure the container itself is visible (but keep the sprite hidden by CSS until ready)
-    requestAnimationFrame(() => ghost.classList.add('on')); // ghost container fades in (sprite opacity stays 0 until .ready)  <-- css handles this
+    // ensure ghost container is visible during intro
+    ghost.classList.add('on','charging');
 
-    // Measure the sprite box for canvas size
-    const box = sprite.getBoundingClientRect();
-    const CSS_W = Math.max(120, box.width  || 140);
-    const CSS_H = Math.max(140, box.height || 170);
-    const dpr   = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+    // Build overlay SVG
+    const wrap = document.createElementNS('http://www.w3.org/2000/svg','svg');
+    wrap.setAttribute('class','electric-intro');
+    wrap.setAttribute('viewBox','0 0 300 300');
+    wrap.style.animation = 'boltPulse 220ms ease-in-out infinite';
 
-    // Canvas sits above the sprite while assembling
-    const cvs = document.createElement('canvas');
-    cvs.className = 'assemble';
-    cvs.style.width  = CSS_W + 'px';
-    cvs.style.height = CSS_H + 'px';
-    cvs.width  = Math.round(CSS_W * dpr);
-    cvs.height = Math.round(CSS_H * dpr);
-    sprite.appendChild(cvs);
+    // defs: noise + displacement for shiver
+    const defs = document.createElementNS(wrap.namespaceURI,'defs');
+    const turb = document.createElementNS(wrap.namespaceURI,'feTurbulence');
+    turb.setAttribute('type','fractalNoise');
+    turb.setAttribute('baseFrequency','0.9');
+    turb.setAttribute('numOctaves','1');
+    turb.setAttribute('seed', String((Math.random()*1000)|0));
+    turb.setAttribute('result','noise');
 
-    const ctx = cvs.getContext('2d');
-    ctx.scale(dpr, dpr);
+    const disp = document.createElementNS(wrap.namespaceURI,'feDisplacementMap');
+    disp.setAttribute('in','SourceGraphic');
+    disp.setAttribute('in2','noise');
+    disp.setAttribute('scale','6');
+    disp.setAttribute('xChannelSelector','R');
+    disp.setAttribute('yChannelSelector','G');
 
-    const cx = CSS_W / 2;
-    const cy = CSS_H / 2;
+    const filt = document.createElementNS(wrap.namespaceURI,'filter');
+    filt.setAttribute('id','elecDistort');
+    filt.appendChild(turb); filt.appendChild(disp);
+    defs.appendChild(filt);
+    wrap.appendChild(defs);
 
-    // Build particles
-    const parts = [];
-    for (let i = 0; i < COUNT; i++) {
-      const a = Math.random() * Math.PI * 2;
-      const r = R_MIN + Math.random() * (R_MAX - R_MIN);
-      const life  = DUR * (0.85 + Math.random() * 0.35);
-      const start = performance.now() + Math.random() * 120;
-      const char  = CHARSET[(Math.random() * CHARSET.length) | 0];
-      const swirl = (Math.random() < .5 ? -1 : 1) * (0.9 + Math.random() * 0.8);
-      const fs    = 8 + Math.random() * 6;
-      const hue   = Math.random() < 0.5 ? -35 : 165; // magenta/cyan shimmer
+    const g = document.createElementNS(wrap.namespaceURI,'g');
+    g.setAttribute('filter','url(#elecDistort)');
+    wrap.appendChild(g);
 
-      parts.push({ a, r, life, start, char, swirl, fs, hue });
+    // center
+    const cx = 150, cy = 150;
+
+    // Waves (concentric-ish oscillations)
+    for (let i=0;i<WAVES;i++){
+      const path = document.createElementNS(wrap.namespaceURI,'path');
+      const r    = 52 + i*22;
+      const amp  = 6 + i*3;
+      const freq = 3 + i;
+      const phase= Math.random()*Math.PI*2;
+      const steps= 90;
+
+      path.setAttribute('d', makeSine({x0: cx-r, y0: cy, x1: cx+r, y1: cy}, amp, freq, phase, steps));
+      path.setAttribute('fill','none');
+      path.setAttribute('stroke','hsl(195, 100%, 72%)');
+      path.setAttribute('stroke-width', String(1.6 - i*0.3));
+      path.setAttribute('stroke-linecap','round');
+      path.setAttribute('stroke-dasharray','12 10');
+      path.style.animation = `dashFlow ${520 + i*120}ms linear infinite`;
+      g.appendChild(path);
     }
 
-    const t0 = performance.now();
-    const easeOutExpo = t => (t >= 1 ? 1 : 1 - Math.pow(2, -10 * t));
+    // Bolts
+    for (let b=0;b<BOLTS;b++){
+      const bolt = document.createElementNS(wrap.namespaceURI,'path');
+      bolt.setAttribute('d', randomBoltPath(300,300,cx,cy));
+      bolt.setAttribute('fill','none');
+      bolt.setAttribute('stroke','hsl(195, 100%, 85%)');
+      bolt.setAttribute('stroke-width','2.5');
+      bolt.setAttribute('stroke-linecap','round');
+      bolt.setAttribute('stroke-opacity','0.0'); // will flicker in
+      g.appendChild(bolt);
 
-    return new Promise(resolve => {
-      function frame(now) {
-        ctx.clearRect(0, 0, CSS_W, CSS_H);
-
-        let active = 0;
-        for (const p of parts) {
-          if (now < p.start) continue;
-          active++;
-
-          const t = Math.min(1, (now - p.start) / p.life);
-          const e = easeOutExpo(t);
-
-          // spiral inward
-          const aNow = p.a + e * p.swirl * 3.2;
-          const rNow = (1 - e) * p.r;
-          const x = cx + Math.cos(aNow) * rNow;
-          const y = cy + Math.sin(aNow) * rNow;
-
-          // slight life jitter
-          const jx = Math.sin((now + p.r) * 0.01) * 0.6;
-          const jy = Math.cos((now - p.r) * 0.012) * 0.6;
-
-          // alpha in/out
-          const alpha = Math.min(1, t * 2) * (1 - Math.max(0, t - 0.7) / 0.3);
-
-          ctx.save();
-          ctx.translate(x + jx, y + jy);
-          ctx.rotate(aNow * 0.08);
-
-          ctx.globalAlpha = 0.55 * alpha;
-          ctx.fillStyle = `hsl(${p.hue}, 85%, 70%)`;
-          ctx.font = `${p.fs}px ui-monospace, SFMono-Regular, Consolas, Menlo, monospace`;
-          ctx.fillText(p.char, 0, 0);
-
-          ctx.globalAlpha = 0.35 * alpha;
-          ctx.fillStyle = `hsl(${p.hue + 200}, 85%, 70%)`;
-          ctx.fillText(p.char, -1.5, 0.5);
-          ctx.restore();
-        }
-
-        // tiny container jitter early
-        const prog = Math.min(1, (now - t0) / DUR);
-        if (prog < 0.9) {
-          const j = (1 - prog) * 1.1;
-          ghost.style.transform = `translateX(-50%) translateY(${j * Math.sin(now * 0.04)}px)`;
-        } else {
-          ghost.style.transform = `translateX(-50%)`;
-        }
-
-        if (active > 0) {
-          requestAnimationFrame(frame);
-        } else {
-          // handoff: fade canvas, reveal sprite
-          ghost.classList.add('ready'); // your CSS fades the sprite in
-          cvs.style.transition = 'opacity 300ms ease';
-          cvs.style.opacity = '0';
-          setTimeout(() => {
-            cvs.remove();
-            resolve();
-          }, 320);
-        }
+      // quick flicker schedule
+      const flickerTimes = 3 + (Math.random()*2|0);
+      for (let k=0;k<flickerTimes;k++){
+        setTimeout(()=>{
+          bolt.setAttribute('stroke-opacity','1');
+          setTimeout(()=> bolt.setAttribute('stroke-opacity','0.0'), 70 + (Math.random()*60|0));
+        }, 90 + b*60 + k*(140 + (Math.random()*60|0)));
       }
+    }
 
-      requestAnimationFrame(frame);
+    // Mount overlay and scale
+    ghost.appendChild(wrap);
+    // scale by CSS width/height of .electric-intro: bump via SIZE
+    const baseW = Math.min(window.innerWidth*0.34, 420);
+    wrap.style.width  = `${baseW*SIZE}px`;
+    wrap.style.height = `${baseW*SIZE}px`;
+
+    // Timers: end => fade overlay + reveal sprite
+    const endAt = performance.now() + DUR;
+
+    // ensure the ghost sprite fades in once electricity finishes
+    setTimeout(() => {
+      wrap.style.transition = 'opacity 260ms ease';
+      wrap.style.opacity = '0';
+      ghost.classList.add('ready'); // your CSS fades in .sprite
+      ghost.style.animation = 'settleGlow 600ms ease forwards';
+      setTimeout(() => {
+        ghost.classList.remove('charging');
+        wrap.remove();
+        onDone();
+      }, 280);
+    }, DUR + HOLD);
+
+    // return a Promise so callers can await completion
+    return new Promise(resolve => {
+      setTimeout(resolve, DUR + HOLD + 300);
     });
   }
 
-  // expose
-  window.ghostAssembleEntrance = ghostAssembleEntrance;
+  // expose globally
+  window.ghostElectricIntro = ghostElectricIntro;
 })();
