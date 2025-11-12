@@ -22,7 +22,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // lock the reveal so it never re-fades
   const revealMs = 1600 + 250;
-  setTimeout(() => titleEl.classList.add('revealed'), revealMs);
+setTimeout(() => {
+  titleEl.classList.add('revealed');
+  // NEW: let background know the title is fully in
+  window.dispatchEvent(new CustomEvent('intro:reveal-done'));
+}, revealMs);
 
   /* -------- Wrap "GROVE" word for word-only RGB edges -------- */
   function wrapGrove(){

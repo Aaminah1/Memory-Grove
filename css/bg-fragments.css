@@ -1,0 +1,74 @@
+/* Fixed background layer behind content */
+#bg{
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;           /* stay untouchable */
+}
+
+/* Fog/smoke canvas */
+#bgSmoke{
+  position:absolute; inset:0;
+  width:100%; height:100%;
+  opacity:0;                         /* start hidden */
+  transition: opacity 900ms ease;    /* fade */
+}
+#bgSmoke.on{ opacity:.78; }          /* final look */
+
+/* 3D fragment field */
+#fragField{
+  position:absolute; inset:0;
+  /* Perspective is animated via CSS var; small value ≈ flat look */
+  --persp: 800px;
+  --rx: 0deg;
+  --ry: 0deg;
+  transform-style: preserve-3d;
+  transform: perspective(var(--persp)) rotateX(var(--rx)) rotateY(var(--ry));
+  opacity:0;                         /* start hidden */
+  transition: opacity 700ms ease,    /* fade */
+              transform 480ms cubic-bezier(.2,.8,.1,1), 
+              filter 480ms ease;
+  filter: none;
+}
+#fragField { --fragAlpha: .22; } 
+#fragField.on{ opacity:1; }
+/* Each fragment */
+.frag{
+  position:absolute;
+  left:0; top:0;
+  transform: translate3d(0,0,0);
+  color: rgba(231,235,244,.78);
+  font: 12px/1.35 ui-monospace, SFMono-Regular, Consolas, Menlo, monospace;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+   opacity: var(--fragAlpha) !important;                  /* fade in after spawn */
+  mix-blend-mode: normal;
+  will-change: transform, opacity, filter;
+  pointer-events: none;
+  text-shadow: 0 0 1px rgba(255,255,255,.08);
+  transition: opacity 420ms ease; 
+}
+
+/* a subtle “digital” flicker on some fragments */
+.frag.flick{
+  animation: fragFlick 2.2s steps(2,end) infinite;
+  
+}
+@keyframes fragFlick{
+  0%{ opacity:.76 }
+  50%{ opacity:.62 }
+  100%{ opacity:.76 }
+}
+
+/* “flattened” state (idle) – optional slight blur to sell the collapse */
+#fragField.flat{
+  --persp: 12px;              /* near-zero perspective */
+  --rx: 0deg; --ry: 0deg;
+ filter: saturate(.9) blur(.35px);
+}
+
+/* reduced motion: keep things readable and static-ish */
+@media (prefers-reduced-motion: reduce){
+  #fragField{ transition:none; }
+  .frag{ animation:none; }
+}
