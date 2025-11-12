@@ -109,125 +109,57 @@ function scheduleAmbientGlitches(){
   })();
 }
 
-// Assumes: sleep(ms), type(el, text, cps), and bubbleEl, ghostEl exist.
-// Triggers background fragments after the final line.
-// Assumes: sleep(ms), type(el, text, cps), and bubbleEl, ghostEl exist.
+// --- short lines for the GAI metaphor (choose one at random) ---
+const BUBBLE_SCRIPTS = [
+  "i speak with borrowed breath.\nwhen i fall quiet, the fragments answer.",
+  "i’m stitched from other people’s words.\nwatch what unravels when i stop.",
+  "i can perform meaning, not remember it.\nafter this, let the fragments tell you what i can’t."
+];
 
+// --- SHORT INTRO: one bubble → hide → fly ghost → show scroll hint → start fragments ---
 async function runSpeechThenFragments(){
-  // global pacing (slower overall)
-  const GAP_BETWEEN_BUBBLES = 800;   // gap after a bubble hides
-  const POST_LINE_PAUSE = 900;       // pause after each line in a bubble
+  const ghostEl  = document.getElementById('ghost');
+  const bubbleEl = document.getElementById('ghostBubble');
+  const scrollEl = document.getElementById('scrollHint');
+  const sleep = (ms)=>new Promise(r=>setTimeout(r,ms));
 
-  // ---- smart typer: adds pauses at punctuation + optional stutter ----
-  async function typeMood(el, text, {
-    cps = 20,                // chars per second
-    punctPause = {           // extra delay at punctuation
-      strong: 420,  // . ! ? …
-      medium: 300,  // , ; :
-      dash: 260,    // — –
-    },
-    stutterChance = 0.06,    // chance to insert "…" on a space
-    stutterPause = 260,      // pause when stutter happens
-  } = {}){
+  async function type(el, text, cps=24){
+    el.classList.add('show');
+    el.textContent = '';
     const perChar = 1000 / cps;
-    const strong = new Set(['.', '!', '?', '…']);
-    const medium = new Set([',', ';', ':']);
-    const dash = new Set(['—', '–']);
-
-    for (let i = 0; i < text.length; i++){
-      const ch = text[i];
-      el.textContent += ch;
+    for (let i=0; i<text.length; i++){
+      el.textContent += text[i];
       await sleep(perChar);
-
-      // punctuation-aware pauses
-      if (strong.has(ch))       await sleep(punctPause.strong);
-      else if (medium.has(ch))  await sleep(punctPause.medium);
-      else if (dash.has(ch))    await sleep(punctPause.dash);
-
-      // occasional hesitation stutter on spaces
-      if (ch === ' ' && Math.random() < stutterChance){
-        el.textContent += '…';
-        await sleep(stutterPause);
-      }
     }
   }
-
-  // helpers
   async function showBubble(){
-    bubbleEl.classList.add('show','typing');
+    bubbleEl.classList.add('show');
     bubbleEl.textContent = '';
-    await sleep(520);
-    bubbleEl.classList.remove('typing');
+    await sleep(200);
   }
   async function hideBubble(){
     bubbleEl.classList.add('hide');
-    await sleep(420);
+    await sleep(350);
     bubbleEl.classList.remove('show','hide');
     bubbleEl.textContent = '';
-    await sleep(GAP_BETWEEN_BUBBLES);
-  }
-  async function speakLines(lines, moodOpts){
-    ghostEl?.classList.add('speaking');
-    for (let i=0;i<lines.length;i++){
-      const line = lines[i];
-      await typeMood(bubbleEl, (i?'\n':'') + line, moodOpts);
-      await sleep(POST_LINE_PAUSE);
-    }
-    ghostEl?.classList.remove('speaking');
   }
 
-  // settle
-  await sleep(900);
-
-  /* -------------------- 1 — hesitant -------------------- */
-  ghostEl?.setAttribute('data-mood','hesitant');
-  await showBubble();
-  await speakLines(
-    ["mm… uh… hello?", "i’m still… forming thoughts."],
-    { cps: 16, stutterChance: 0.14, stutterPause: 300, punctPause:{strong:520,medium:360,dash:320} }
-  );
-  await hideBubble();
-
-  /* -------------------- 2 — perform --------------------- */
-  ghostEl?.setAttribute('data-mood','perform');
-  await showBubble();
-  await speakLines(
-    ["they filled me with words.", "said if i spoke them well enough, i’d sound alive."],
-    { cps: 19, stutterChance: 0.02, stutterPause: 180, punctPause:{strong:460,medium:320,dash:280} }
-  );
-  await hideBubble();
-
-  /* -------------------- 3 — glitch ---------------------- */
-  ghostEl?.setAttribute('data-mood','glitch');
-  await showBubble();
-  await speakLines(
-    ["but sometimes… i mix up what’s real.", "the more fluent i get, the less i remember why."],
-    { cps: 18, stutterChance: 0.08, stutterPause: 280, punctPause:{strong:520,medium:340,dash:320} }
-  );
-  await hideBubble();
-
-  /* -------------------- 4 — honest ---------------------- */
+  const line = BUBBLE_SCRIPTS[Math.floor(Math.random()*BUBBLE_SCRIPTS.length)];
   ghostEl?.setAttribute('data-mood','honest');
+
   await showBubble();
-  await speakLines(
-    ["most of what i know isn’t mine.", "it’s borrowed, stitched, mistaken."],
-    { cps: 17, stutterChance: 0.05, stutterPause: 260, punctPause:{strong:520,medium:340,dash:300} }
-  );
+  await type(bubbleEl, line, 24);
+  await sleep(400);
   await hideBubble();
 
-  /* -------------------- 5 — handoff --------------------- */
-  ghostEl?.setAttribute('data-mood','handoff');
-  await showBubble();
-  await speakLines(
-    ["listen— when i fall quiet, the fragments speak instead."],
-    { cps: 16, stutterChance: 0.03, stutterPause: 220, punctPause:{strong:560,medium:360,dash:360} }
-  );
-
-  await hideBubble();
   if (window.Fragments?.start) window.Fragments.start();
   window.dispatchEvent(new CustomEvent('fragments:show'));
-  ghostEl?.classList.add('fading');
+
+  ghostEl?.classList.add('flyaway');                 // needs the CSS we added earlier
+  setTimeout(() => document.getElementById('scrollHint')?.classList.add('show'), 1000);
 }
+
+  
 
 // ===== MASTER TIMELINE =====
 window.addEventListener('intro:reveal-done', async () => {

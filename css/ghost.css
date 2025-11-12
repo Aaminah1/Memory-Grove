@@ -359,3 +359,100 @@
     0 8px 20px rgba(0,0,0,.38),
     inset 0 1px 0 rgba(255,255,255,0.05);
 }
+/* ——— compact speech bubble (auto width by characters) ——— */
+#ghost .bubble{
+  position: absolute;
+  left: 50%;
+  top: calc(100% - 2px);          /* closer to the chin */
+  transform: translateX(-50%);
+
+  /* size: fit the text, not a long bar */
+  display: inline-block;
+  /* tune these two numbers to control length */
+  --bubble-min: 22ch;             /* never narrower than ~22 characters */
+  --bubble-max: 36ch;             /* never wider   than ~36 characters */
+  min-inline-size: var(--bubble-min);
+  max-inline-size: var(--bubble-max);
+
+  padding: 10px 16px;
+  line-height: 1.35;
+  text-align: left;
+  white-space: pre-wrap;          /* keep your \n line breaks */
+  overflow-wrap: anywhere;        /* prevent weird tall stacking */
+
+  /* look */
+  background: linear-gradient(180deg, rgba(16,22,32,.94), rgba(10,14,22,.92));
+  color: #e8edf8;
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: 16px;            /* rounded bubble, not a pill */
+  box-shadow:
+    0 10px 26px rgba(0,0,0,.42),
+    inset 0 1px 0 rgba(255,255,255,.06);
+
+  /* show/hide (keep your existing transitions) */
+  opacity: 1;
+  transform-origin: 50% -8px;
+}
+
+/* centered tail under the ghost */
+#ghost .bubble::before,
+#ghost .bubble::after{
+  content:"";
+  position:absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events:none;
+}
+
+#ghost .bubble::before{           /* rim */
+  top:-10px;
+  border-left: 10px solid transparent;
+  border-right:10px solid transparent;
+  border-bottom:10px solid rgba(255,255,255,.12);
+  filter: blur(.3px);
+}
+#ghost .bubble::after{            /* fill */
+  top:-9px;
+  border-left: 9px solid transparent;
+  border-right:9px solid transparent;
+  border-bottom:9px solid rgba(16,22,32,.94);
+}
+
+/* optional: tiny version if you ever need extra-small text bubbles */
+#ghost .bubble.small{
+  --bubble-min: 18ch;
+  --bubble-max: 28ch;
+  padding: 8px 14px;
+  border-radius: 14px;
+}
+/* Bubble hide transition */
+#ghost .bubble.hide{
+  opacity: 0;
+  transform: translateX(-50%) scale(.98);
+  transition: opacity .35s ease, transform .35s ease;
+  pointer-events: none;
+}
+#ghost .bubble.hide.done{ display: none; }
+
+/* Ghost flies upward and fades */
+#ghost.flyaway{
+  animation: ghostFlyAway .9s cubic-bezier(.2,.9,.1,1) forwards;
+}
+@keyframes ghostFlyAway{
+  to{
+    transform: translate(-50%,-120vh) scale(.94);
+    opacity: 0;
+  }
+}
+
+/* Scroll hint: hidden by default, fade in later */
+#scrollHint{
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity .5s ease, transform .5s ease;
+  pointer-events: none;
+}
+#scrollHint.show{
+  opacity: 1;
+  transform: translateY(0);
+}
