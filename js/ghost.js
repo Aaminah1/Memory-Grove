@@ -7,6 +7,13 @@
   const titleEl  = document.getElementById('title');
   const ghostEl  = document.getElementById('ghost');
   const bubbleEl = document.getElementById('ghostBubble');
+  function startSpeaking(){ ghostEl?.classList.add('speaking'); }
+function stopSpeaking(){ ghostEl?.classList.remove('speaking'); }
+
+// If the bubble finishes hiding (opacity/scale), make sure we stop speaking
+bubbleEl?.addEventListener('transitionend', () => {
+  if (!bubbleEl.classList.contains('show')) stopSpeaking();
+});
   if (!titleEl || !ghostEl) return;
 
   /* ---------- utils ---------- */
@@ -318,18 +325,18 @@ async function runSpeechThenFragments(){
 async function showBubble(){
   bubbleEl.classList.remove('hide');
   bubbleEl.classList.add('show');
-  // small delay so CSS transition can kick in
-  await sleep(50);
+  startSpeaking();                 // <-- mouth starts moving now
+  await sleep(50);                 // let CSS transition kick in
 }
 
 async function hideBubble(){
   bubbleEl.classList.remove('show');
   bubbleEl.classList.add('hide');
-  await waitForTransitionEnd(bubbleEl, 500); // wait for opacity/scale
+  await waitForTransitionEnd(bubbleEl, 500);
   bubbleEl.classList.remove('hide');
   bubbleEl.textContent = '';
+  stopSpeaking();                  // <-- stop the mouth after hide completes
 }
-
   const line = BUBBLE_SCRIPTS[Math.floor(Math.random()*BUBBLE_SCRIPTS.length)];
   ghostEl?.setAttribute('data-mood','honest');
 
