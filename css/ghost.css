@@ -1,20 +1,34 @@
 /* ----- ghost container under the title ----- */
 
+/* ----- ghost container under the title ----- */
 #ghost{
   position: fixed;
   left: 50%;
-  top: 50%;                        /* <— center vertically */
-  transform: translate(-50%,-50%); /* <— center both axes */
+  top: clamp(110px, 30vh, 280px);
+
+  /* base centering + JS-driven offsets */
+  --ox: -50%;        /* keep horizontal centering */
+  --tx: 0px;         /* JS updates these offsets */
+  --ty: 0px;
+  transform: translateX(var(--ox)) translate(var(--tx), var(--ty));
+
   color: #e7ebf4;
   opacity: 0;
-  transition: opacity 700ms ease, transform 900ms cubic-bezier(.2,.9,.1,1);
+  transition:
+    opacity 700ms ease,
+    transform 900ms cubic-bezier(.2,.9,.1,1);
   pointer-events: none;
   z-index: 9999;
-    --bobAmp: 22px;   /* vertical travel (try 28–34px for huge) */
-  --bobDur: 5.2s;   /* cycle duration  (lower = faster)        */
 }
-#ghost.on{ opacity:1; transform: translate(-50%,-50%) }
+#ghost.on{ opacity:1; }
 
+/* When roaming after speaking */
+#ghost.wander{
+  opacity: 0.65;              /* a bit ghostier */
+  transition:
+    opacity 800ms ease,
+    transform 1600ms cubic-bezier(.23,1,.32,1);  /* smoother long moves */
+}
 
 
 /* Sprite stays hidden until .ready — ONLY BREATHE LIVES HERE */
@@ -52,13 +66,9 @@
   0%,100%{ transform: rotate(0deg) }
   50%    { transform: rotate(-1.8deg) }
 }
-@keyframes ghostBob     { 0%,100%{ transform: translateY(0) } 50%{ transform: translateY(-7px) } }
-@keyframes ghostTilt    { 0%,100%{ transform: rotate(0deg) }  50%{ transform: rotate(-1.2deg) } }
-@keyframes ghostBreathe { 0%,100%{ transform: scaleY(1) }     50%{ transform: scaleY(0.985) } }
-#ghost.ready .sprite { opacity: 1; }
+
+
 /* ===== COLOR-GLITCH LINES & RGB SLICE ===== */
-/* We render quick scanlines over the sprite using ::after, and a chroma offset using ::before */
-#ghost .sprite { position: relative; overflow: visible; }
 
 /* scanline pass – denser + brighter sweep */
 #ghost .sprite::after{
@@ -77,18 +87,33 @@
   filter: blur(.35px) saturate(1.35);
 }
 /* Punchier colour-glitch sweep (keeps your existing toggles) */
+/* punchier colour glitch */
 #ghost.glitch .sprite::after{
   opacity:.95;
   animation: ghostScan 180ms linear 1;
-}
-@keyframes ghostScan{
-  0%   { transform: translateY(-35%); }
-  100% { transform: translateY(135%); }
 }
 #ghost.glitch .sprite::before{
   opacity:1;
   animation: ghostSlice 150ms steps(2,end) 1;
 }
+
+/* stronger variant every few cycles */
+#ghost.glitch-strong .sprite::before{
+  filter:
+    drop-shadow( 3px -2px rgba(255, 32, 96, .55))
+    drop-shadow(-3px  2px rgba( 32,210,255, .55))
+    drop-shadow( 0px  0px rgba(  0,255,140, .45));
+}
+#ghost.glitch-strong{
+  animation: hueRoll 260ms steps(2,end) 1;   /* quick colour pop */
+  filter: saturate(1.25) contrast(1.08);
+}
+@keyframes hueRoll{
+  0%  { filter: hue-rotate(0deg)   saturate(1.25) contrast(1.08); }
+  50% { filter: hue-rotate(24deg)  saturate(1.35) contrast(1.10); }
+  100%{ filter: hue-rotate(0deg)   saturate(1.25) contrast(1.08); }
+}
+
 @keyframes ghostSlice{
   0%  { transform: translate(1.6px,-1.2px) skewX(1.2deg); }
   50% { transform: translate(-1.6px,1.2px) skewX(-1.2deg); }
@@ -144,7 +169,6 @@
   0%,100%{ transform: scaleY(1) }
   50%{ transform: scaleY(0.985) }
 }
-@keyframes ghostTilt  { 0%,100%{ transform: rotate(0deg) } 50%{ transform: rotate(-1.2deg) } }
 
 /* both faces live in the same spot; we just fade between them */
 #ghost .face { animation: faceDrift 7.2s ease-in-out infinite; }
@@ -191,86 +215,7 @@
   100%{ transform: translate(0,0) }
 }
 
-/* speech bubble: readable + tail */
-/* ---------- Speech bubble (glass, readable, closer) ---------- */
-#ghost .bubble{
-  /* layout */
-  position: absolute;
-  left: 50%;
-   top: calc(100% + 2px);    /* closer: was 12px */
-  transform: translateX(-50%);
-  max-width: clamp(720px, 86vw, 1120px);  
 
-  /* look */
-  --bubble-bg1: rgba(16,22,32,0.92);
-  --bubble-bg2: rgba(10,14,22,0.90);
-  --ring: rgba(255,255,255,0.12);
-  --inner: rgba(255,255,255,0.06);
-
-  background: linear-gradient(180deg, var(--bubble-bg1), var(--bubble-bg2));
-  color: #e8edf8;
-  border: 1px solid var(--ring);
-  border-radius: 16px;
-   padding: 14px 28px;   
-  text-align: center;
-
-  /* type */
-  font: 16px/1.45 ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif; /* slightly tighter */
-  letter-spacing: .1px; 
-    text-wrap: balance; 
-  white-space: pre-wrap;               /* keep your line breaks */
-  text-shadow: 0 1px 0 rgba(0,0,0,0.35);
-
-  /* glass + depth */
-  backdrop-filter: blur(8px) saturate(120%);
-  box-shadow:
-    0 10px 28px rgba(0,0,0,.42),
-    inset 0 1px 0 var(--inner);
-
-  /* show/hide */
-  opacity: 0;
-  transform-origin: 50% -8px;          /* scale from tail */
-  transition:
-    opacity 340ms ease,
-    box-shadow 340ms ease,
-    border-color 340ms ease,
-    background-color 340ms ease;
-}
-
-/* tail (with subtle rim) */
-#ghost .bubble::before,
-#ghost .bubble::after{
-  content:"";
-  position:absolute; left:50%;
-  transform: translateX(-50%);
-  pointer-events:none;
-}
-#ghost .bubble::before{
-  top:-8px;
-  border-left:9px solid transparent;
-  border-right:9px solid transparent;
-  border-bottom:9px solid rgba(16,22,32,0.92);   /* matches bg */
-  filter: drop-shadow(0 -1px 0 rgba(255,255,255,0.10));
-}
-#ghost .bubble::after{                /* tiny inner highlight at base */
-  top:-1px; width:52px; height:2px;
-  background: radial-gradient(50% 120% at 50% 0%,
-              rgba(255,255,255,0.10), transparent 70%);
-  border-radius: 2px;
-}
-
-/* visibility states (no movement of ghost) */
-#ghost .bubble.show{ opacity:1; }
-#ghost .bubble.hide{ opacity:0; }
-
-/* typing hesitation (kept) */
-#ghost .bubble.typing::after{
-  content:' …';
-  animation:dots 1.2s steps(3,end) infinite;
-}
-@keyframes dots{
-  0%{content:' .'} 33%{content:' ..'} 66%{content:' ...'} 100%{content:' .'}
-}
 
 /* optional word wobble + rgb edge (kept) */
 @keyframes wobble{
@@ -299,160 +244,80 @@
 }
 
 
-/*SPEECH BUBBLE MOOD TEXT*/
-/* hesitant: dimmer, cooler ring */
-#ghost[data-mood="hesitant"] .bubble{
-  --ring: rgba(180,200,255,0.14);
-  box-shadow:
-    0 10px 26px rgba(0,0,0,.42),
-    inset 0 1px 0 rgba(255,255,255,0.05);
-  opacity: .92;
-}
-
-/* perform: brighter, sharper ring + glow */
-#ghost[data-mood="perform"] .bubble{
-  --ring: rgba(220,238,255,0.22);
-  box-shadow:
-    0 14px 34px rgba(10,30,60,.55),
-    0 0 24px rgba(160,210,255,0.10),
-    inset 0 1px 0 rgba(255,255,255,0.08);
-  background: linear-gradient(180deg,
-              rgba(22,28,40,0.95),
-              rgba(12,18,30,0.94));
-}
-
-/* glitch: add chromatic fringe + micro-noise */
-#ghost[data-mood="glitch"] .bubble{
-  --ring: rgba(255,120,180,0.22);
-  box-shadow:
-    0 12px 30px rgba(20,0,30,.55),
-    0 0 20px rgba(120,180,255,0.10),
-    inset 0 1px 0 rgba(255,255,255,0.07);
-  position: relative;
-}
-#ghost[data-mood="glitch"] .bubble::after{
-  /* subtle RGB fringing around the bubble edge */
-  content:""; position:absolute; inset:-1px; border-radius:16px;
-  pointer-events:none;
-  box-shadow:
-    1px -1px 0 0 rgba(255,90,160,0.25),
-   -1px  1px 0 0 rgba(90,200,255,0.25);
-  mix-blend-mode: screen;
-}
-
-/* honest: softer, cooler tint */
-#ghost[data-mood="honest"] .bubble{
-  --ring: rgba(180,210,255,0.16);
-  background: linear-gradient(180deg,
-              rgba(14,20,30,0.94),
-              rgba(10,14,22,0.92));
-  box-shadow:
-    0 10px 26px rgba(0,0,0,.42),
-    inset 0 1px 0 rgba(255,255,255,0.06);
-}
-
-/* handoff: gently dim to let fragments take over */
-#ghost[data-mood="handoff"] .bubble{
-  opacity: .86;
-  --ring: rgba(180,200,240,0.12);
-  box-shadow:
-    0 8px 20px rgba(0,0,0,.38),
-    inset 0 1px 0 rgba(255,255,255,0.05);
-}
-/* ——— compact speech bubble (auto width by characters) ——— */
+/* ---------- Speech bubble (glass, readable, closer) ---------- */
 #ghost .bubble{
+  /* layout */
   position: absolute;
   left: 50%;
-  top: calc(100% - 2px);          /* closer to the chin */
+  top: calc(100% + -50px);             /* closer: was +8px */
   transform: translateX(-50%);
-
-  /* size: fit the text, not a long bar */
   display: inline-block;
-  /* tune these two numbers to control length */
-  --bubble-min: 22ch;             /* never narrower than ~22 characters */
-  --bubble-max: 36ch;             /* never wider   than ~36 characters */
+
+  /* line length (readability sweet spot) */
+  --bubble-min: 26ch;                /* never narrower than ~26 characters */
+  --bubble-max: 70ch;                /* never wider   than ~42 characters */
   min-inline-size: var(--bubble-min);
   max-inline-size: var(--bubble-max);
 
-  padding: 10px 16px;
-  line-height: 1.35;
-  text-align: left;
-  white-space: pre-wrap;          /* keep your \n line breaks */
-  overflow-wrap: anywhere;        /* prevent weird tall stacking */
-
   /* look */
-  background: linear-gradient(180deg, rgba(16,22,32,.94), rgba(10,14,22,.92));
+  --bg1: rgba(16,22,32,0.94);
+  --bg2: rgba(10,14,22,0.92);
+  --ring: rgba(255,255,255,0.14);
+
+  background: linear-gradient(180deg, var(--bg1), var(--bg2));
   color: #e8edf8;
-  border: 1px solid rgba(255,255,255,.14);
-  border-radius: 16px;            /* rounded bubble, not a pill */
+  border: 1px solid var(--ring);
+  border-radius: 16px;
+  padding: 14px 22px;                /* a touch wider */
+  text-align: left;
+  white-space: pre-wrap;             /* keep your \n */
+  overflow-wrap: anywhere;
+  text-wrap: balance;                /* nicer wrapping */
+  line-height: 1.45;
+  font-size: clamp(14px, 1.5vw, 16px);
+  letter-spacing: .1px;
+  text-shadow: 0 1px 0 rgba(0,0,0,.35);
+
+  /* glass depth */
+  backdrop-filter: blur(8px) saturate(120%);
   box-shadow:
-    0 10px 26px rgba(0,0,0,.42),
+    0 10px 28px rgba(0,0,0,.42),
     inset 0 1px 0 rgba(255,255,255,.06);
 
-  /* show/hide (keep your existing transitions) */
-  opacity: 1;
-  transform-origin: 50% -8px;
-}
-
-/* centered tail under the ghost */
-#ghost .bubble::before,
-#ghost .bubble::after{
-  content:"";
-  position:absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  pointer-events:none;
-}
-
-#ghost .bubble::before{           /* rim */
-  top:-10px;
-  border-left: 10px solid transparent;
-  border-right:10px solid transparent;
-  border-bottom:10px solid rgba(255,255,255,.12);
-  filter: blur(.3px);
-}
-#ghost .bubble::after{            /* fill */
-  top:-9px;
-  border-left: 9px solid transparent;
-  border-right:9px solid transparent;
-  border-bottom:9px solid rgba(16,22,32,.94);
-}
-
-/* optional: tiny version if you ever need extra-small text bubbles */
-#ghost .bubble.small{
-  --bubble-min: 18ch;
-  --bubble-max: 28ch;
-  padding: 8px 14px;
-  border-radius: 14px;
-}
-/* Bubble hide transition */
-#ghost .bubble.hide{
-  opacity: 0;
-  transform: translateX(-50%) scale(.98);
+  /* show/hide */
+  opacity: 0;                         /* base hidden */
+  transform-origin: 50% -8px;         /* scale from tail */
   transition: opacity .35s ease, transform .35s ease;
   pointer-events: none;
 }
-#ghost .bubble.hide.done{ display: none; }
 
-/* Ghost flies upward and fades */
-#ghost.flyaway{
-  animation: ghostFlyAway .9s cubic-bezier(.2,.9,.1,1) forwards;
+/* centered tail with subtle rim */
+#ghost .bubble::before,
+#ghost .bubble::after{
+  content:"";
+  position:absolute; left:50%;
+  transform: translateX(-50%);
+  pointer-events:none;
 }
-@keyframes ghostFlyAway{
-  to{
-    transform: translate(-50%,-120vh) scale(.94);
-    opacity: 0;
-  }
+#ghost .bubble::before{
+  top:-10px;
+  border-left:10px solid transparent;
+  border-right:10px solid transparent;
+  border-bottom:10px solid rgba(255,255,255,.12); /* rim highlight */
+  filter: blur(.3px);
+}
+#ghost .bubble::after{
+  top:-9px;
+  border-left:9px solid transparent;
+  border-right:9px solid transparent;
+  border-bottom:9px solid rgba(16,22,32,.94);     /* fill */
 }
 
-/* Scroll hint: hidden by default, fade in later */
-#scrollHint{
+/* visibility states */
+#ghost .bubble.show{ opacity: 1; transform: translateX(-50%) }
+#ghost .bubble.hide{
   opacity: 0;
-  transform: translateY(8px);
-  transition: opacity .5s ease, transform .5s ease;
-  pointer-events: none;
+  transform: translateX(-50%) scale(.985);
 }
-#scrollHint.show{
-  opacity: 1;
-  transform: translateY(0);
-}
+
+

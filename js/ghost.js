@@ -10,7 +10,135 @@
   if (!titleEl || !ghostEl) return;
 
   /* ---------- utils ---------- */
-  const sleep = (ms)=> new Promise(r=>setTimeout(r, ms));
+const sleep = (ms)=> new Promise(r=>setTimeout(r, ms));
+function waitForTransitionEnd(el, timeout=800){
+  return new Promise(resolve=>{
+    let done=false;
+    const onEnd = ()=>{ if(done) return; done=true; el.removeEventListener('transitionend', onEnd); resolve(); };
+    el.addEventListener('transitionend', onEnd, { once:true });
+    setTimeout(onEnd, timeout); // fallback
+  });
+}
+
+function waitForAnimationEnd(el, name=null, timeout=1500){
+  return new Promise(resolve=>{
+    let done=false;
+    const onEnd = (e)=>{
+      if (done) return;
+      if (name && e.animationName !== name) return; // if a name is provided, match it
+      done=true; el.removeEventListener('animationend', onEnd);
+      resolve();
+    };
+    el.addEventListener('animationend', onEnd);
+    setTimeout(()=>{ if(!done){ done=true; el.removeEventListener('animationend', onEnd); resolve(); } }, timeout);
+  });
+}
+
+function setGhostOffset(xPx, yPx){
+  ghostEl.style.setProperty('--tx', `${xPx|0}px`);
+  ghostEl.style.setProperty('--ty', `${yPx|0}px`);
+}
+function viewportBox(padVw = 6, padVh = 8){
+  const vw = Math.max(320, window.innerWidth  || 320);
+  const vh = Math.max(320, window.innerHeight || 320);
+  const xPad = vw * (padVw/100);
+  const yPad = vh * (padVh/100);
+  return { vw, vh, xPad, yPad };
+}
+/* =========================================================
+   WANDER MODE: gentle roaming + occasional offscreen slip
+========================================================= */
+let _wanderStop = false;
+
+async function startWanderMode(){
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return; // respect user
+  _wanderStop = false;
+  ghostEl.classList.add('wander');
+
+  // start near current spot
+  setGhostOffset(0,0);
+
+  while(!_wanderStop){
+    await wanderStep();               // pick a new target & move there
+    if (_wanderStop) break;
+
+    // 1 in 4 times: slip offscreen and re-enter with a glitch
+    if (Math.random() < 0.25){
+      await slipOffAndReturn();
+    }
+
+    // idle pause before next step
+    await sleep(400 + Math.random()*600);
+  }
+}
+
+function stopWanderMode(){
+  _wanderStop = true;
+  ghostEl.classList.remove('wander');
+  // reset offsets
+  setGhostOffset(0,0);
+}
+
+async function wanderStep(){
+  const { vw, vh, xPad, yPad } = viewportBox(10, 12);
+
+  // target around the center: +/- 28vw horizontally, +/- 14vh vertically
+  const xMax = vw * 0.28;
+  const yMax = vh * 0.14;
+  const tx = (Math.random()*2 - 1) * xMax;
+  const ty = (Math.random()*2 - 1) * yMax;
+
+  // duration scales with distance (so long moves feel slower)
+  const dist = Math.hypot(tx - getPx('--tx'), ty - getPx('--ty'));
+  const dur  = clamp(map(dist, 60, xMax, 1400, 2600), 900, 3000);
+
+  // apply “travel” transition briefly (CSS long-ease in .wander helps)
+  setGhostOffset(tx, ty);
+  await sleep(dur);
+}
+
+async function slipOffAndReturn(){
+  const { vw, vh } = viewportBox();
+  const fromRight = Math.random() < 0.5;
+
+  // Fly off towards a side and fade a bit
+  const exitX = (fromRight ? vw*0.75 : -vw*0.75);
+  const exitY = (Math.random()*2 - 1) * (vh*0.18);
+  setGhostOffset(exitX, exitY);
+  ghostEl.style.opacity = '0.35';
+  ghostEl.classList.add('glitch'); // little chroma slice on the way out
+  setTimeout(()=>ghostEl.classList.remove('glitch'), 220);
+  await sleep(900 + Math.random()*500);
+
+  // Re-enter from the opposite side with a pop
+  const enterX = (fromRight ? -vw*0.55 : vw*0.55);
+  const enterY = (Math.random()*2 - 1) * (vh*0.12);
+  setGhostOffset(enterX, enterY);
+  ghostEl.style.opacity = '0.55';
+  ghostEl.classList.add('glitch');
+  setTimeout(()=>ghostEl.classList.remove('glitch'), 220);
+  await sleep(600 + Math.random()*400);
+
+  // Then drift back near center
+  const tx = (Math.random()*2 - 1) * (vw*0.20);
+  const ty = (Math.random()*2 - 1) * (vh*0.10);
+  setGhostOffset(tx, ty);
+  ghostEl.style.opacity = '0.65';
+  await sleep(900 + Math.random()*600);
+}
+
+/* small utilities for wander */
+function getPx(varName){
+  const v = getComputedStyle(ghostEl).getPropertyValue(varName);
+  const n = parseFloat(v);
+  return Number.isFinite(n) ? n : 0;
+}
+function map(x, inMin, inMax, outMin, outMax){
+  const t = (x - inMin) / (inMax - inMin);
+  return outMin + (Math.max(0, Math.min(1, t)) * (outMax - outMin));
+}
+function clamp(n, a, b){ return Math.max(a, Math.min(b, n)); }
+
 
   function getLetterSpans(){
     return Array.from(titleEl.querySelectorAll('.ch'));
@@ -132,17 +260,20 @@ async function runSpeechThenFragments(){
       await sleep(perChar);
     }
   }
-  async function showBubble(){
-    bubbleEl.classList.add('show');
-    bubbleEl.textContent = '';
-    await sleep(200);
-  }
-  async function hideBubble(){
-    bubbleEl.classList.add('hide');
-    await sleep(350);
-    bubbleEl.classList.remove('show','hide');
-    bubbleEl.textContent = '';
-  }
+async function showBubble(){
+  bubbleEl.classList.remove('hide');
+  bubbleEl.classList.add('show');
+  // small delay so CSS transition can kick in
+  await sleep(50);
+}
+
+async function hideBubble(){
+  bubbleEl.classList.remove('show');
+  bubbleEl.classList.add('hide');
+  await waitForTransitionEnd(bubbleEl, 500); // wait for opacity/scale
+  bubbleEl.classList.remove('hide');
+  bubbleEl.textContent = '';
+}
 
   const line = BUBBLE_SCRIPTS[Math.floor(Math.random()*BUBBLE_SCRIPTS.length)];
   ghostEl?.setAttribute('data-mood','honest');
@@ -153,10 +284,46 @@ async function runSpeechThenFragments(){
   await hideBubble();
 
   if (window.Fragments?.start) window.Fragments.start();
-  window.dispatchEvent(new CustomEvent('fragments:show'));
+window.dispatchEvent(new CustomEvent('fragments:show'));
 
-  ghostEl?.classList.add('flyaway');                 // needs the CSS we added earlier
-  setTimeout(() => document.getElementById('scrollHint')?.classList.add('show'), 1000);
+// 1) fly away
+ghostEl.classList.add('flyaway');
+// wait for the keyframes named in your CSS: @keyframes ghostFlyAway
+await waitForAnimationEnd(ghostEl, 'ghostFlyAway', 1200);
+// clean up the flyaway class so future transforms aren’t fighting it
+ghostEl.classList.remove('flyaway');
+
+// 2) now begin gentle roaming (and only now)
+startWanderMode();
+
+// 3) hint
+setTimeout(()=>document.getElementById('scrollHint')?.classList.add('show'), 600);
+}
+function scheduleGhostColorGlitches(opts={}){
+  const {
+    minDelay = 6500,   // ~6.5s
+    maxDelay = 9000,   // to ~9s (adds randomness)
+    strongEvery = 3    // every 3rd pulse is stronger
+  } = opts;
+
+  let n = 0;
+  const jitter = () => Math.floor(minDelay + Math.random()*(maxDelay-minDelay));
+
+  const loop = () => {
+    const strong = (++n % strongEvery === 0);
+    if (strong) ghostEl.classList.add('glitch-strong');
+    ghostEl.classList.add('glitch');
+
+    // clear the flags shortly after
+    setTimeout(() => {
+      ghostEl.classList.remove('glitch');
+      if (strong) ghostEl.classList.remove('glitch-strong');
+    }, strong ? 320 : 220);
+
+    setTimeout(loop, jitter());
+  };
+
+  setTimeout(loop, jitter()); // first run
 }
 
   
@@ -203,8 +370,9 @@ window.addEventListener('intro:reveal-done', async () => {
   }
 
   // 4) Slight buffer, then speech + fragments
-  await sleep(250);
-  runSpeechThenFragments();
+ await runSpeechThenFragments();
+
+startWanderMode();
 
   // 5) Ambient glitches/evil pulses in the background
   scheduleAmbientGlitches();
