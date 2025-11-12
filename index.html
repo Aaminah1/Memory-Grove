@@ -4,175 +4,28 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Memory Grove</title>
-  <link rel="stylesheet" href="styles.css" />
-    <link rel="stylesheet" href="modal-styles.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/intro-style.css" />
 </head>
 <body>
-  <header class="site-header">
-    <h1>Memory Grove</h1>
-    <nav>
-      <button id="tab-ask" class="tab active" aria-controls="ghostSection">Ask the Ghost</button>
-      <button id="tab-grove" class="tab" aria-controls="groveSection">
-        Your Grove <span id="groveBadge" class="badge" aria-hidden="true" hidden>0</span>
-      </button>
-    </nav>
-  </header>
-
-  <main>
-    <!-- Stepper -->
-    <div class="stepper" aria-hidden="true">
-      <span class="step step-ask active">1. Ask</span>
-      <span class="sep">›</span>
-      <span class="step step-read">2. Read</span>
-      <span class="sep">›</span>
-      <span class="step step-classify">3. Classify</span>
-      <span class="sep">›</span>
-      <span class="step step-plant">4. Plant</span>
-    </div>
-
-    <!-- Nudge -->
-    <div id="groveNudge" class="nudge" hidden>
-      Seed planted. View it in
-      <button id="gotoGrove" class="linky" type="button" aria-controls="groveSection">Your Grove</button>.
-    </div>
-
-    <!-- ASK -->
-<section id="ghostSection" class="panel">
-  <h2>Encounter the Ghost</h2>
-
-  <form id="askForm" class="ask-row" aria-describedby="askHelp">
-    <textarea id="question" placeholder="Ask a culturally grounded question…" required minlength="3"></textarea>
-    <button id="askBtn" type="submit" disabled>Ask</button>
-  </form>
-  <p id="askHelp" class="help">
-    Tip: ask about practice, story, or meaning (e.g. “What does <em>ubuntu</em> mean in everyday life?”).
-  </p>
-
-  <!-- Tombstone (ghost reply) -->
-  <div id="tombstoneSection" class="tombstone" hidden>
-    <div class="grave-top">
-      <div class="grave-icon" aria-hidden="true">🪦</div>
-      <div class="grave-inscription">Ghost Memory</div>
-    </div>
-
-    <!-- loading skeleton -->
-    <div id="skeleton" class="skeleton" hidden>
-      <div class="shimmer line"></div>
-      <div class="shimmer line"></div>
-      <div class="shimmer line short"></div>
-    </div>
-
-    <!-- errors appear here -->
-    <div id="errorBox" class="error" hidden role="alert"></div>
-
-    <p id="tombstoneText" aria-live="polite"></p>
-
-    <!-- classification (hidden until text finishes appearing) -->
-    <div class="classify" id="classifyBox" hidden>
-      <p class="help">Choose how it feels:</p>
-      <div class="classify-row" role="group" aria-label="Classify the ghost reply">
-        <button type="button" data-class="green"  title="Resonates (agreement)">Resonates</button>
-        <button type="button" data-class="yellow" title="Partial / nuance">Partially right</button>
-        <button type="button" data-class="red"    title="Counter-memory / reject">Wrong / harmful</button>
-      </div>
-
-      <label class="visually-hidden" for="note">Your note</label>
-      <textarea id="note" placeholder="Add a correction, nuance, or counter-memory (optional)"></textarea>
-
-      <div class="action-bar">
-        <span class="chip" id="selectedChip" hidden>—</span>
-        <button id="plantBtn" type="button" disabled>Plant Seed</button>
-      </div>
-    </div>
-  </div>
-</section>
-
-
-    <!-- GROVE -->
-<section id="groveSection" class="panel" hidden>
-  <h2>Your Grove</h2>
-
-  <!-- optional filter bar you can wire later -->
-  <div class="grove-toolbar">
-    <button class="filter-btn" data-filter="all" aria-pressed="true">All</button>
-    <button class="filter-btn" data-filter="green" aria-pressed="false">Resonates</button>
-    <button class="filter-btn" data-filter="yellow" aria-pressed="false">Partially right</button>
-    <button class="filter-btn" data-filter="red" aria-pressed="false">Wrong / harmful</button>
-  </div>
-
-  <div class="grove-frame">
-    <svg id="groveCanvas" viewBox="0 0 1200 700" preserveAspectRatio="xMidYMid meet">
-      <!-- background gradient -->
-      <defs>
-        <linearGradient id="graveGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#1a1b22"/>
-          <stop offset="100%" stop-color="#0f1015"/>
-        </linearGradient>
-        <linearGradient id="stoneGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#cfcfd6"/>
-          <stop offset="100%" stop-color="#9fa3ad"/>
-        </linearGradient>
-        <filter id="stoneShadow" x="-20%" y="-20%" width="140%" height="160%">
-          <feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#000" flood-opacity="0.35"/>
-        </filter>
-      </defs>
-
-      <!-- soft vignette -->
-     <rect id="bgRect" x="0" y="0" width="1200" height="700" fill="url(#graveGrad)"/>
-
-
-      <!-- ground -->
-
-      <!-- stones will be appended here -->
-      <g id="stonesLayer"></g>
-    </svg>
-  </div>
-
-  <p class="hint">Tip: click a stone to peek the memory. Grid auto-reflows with your window size.</p>
-</section>
-
+  <main class="intro">
+    <header class="brand">
+      <h1 id="title" data-title="MEMORY GROVE">MEMORY GROVE</h1>
+      <p id="subtitle" class="sub" aria-live="polite">
+        A quiet place to test a machine’s memory against lived knowledge.
+      </p>
+    </header>
   </main>
 
-  <footer class="site-footer">
-    <small>Prototype for reflection. Seeds are stored locally on this device.</small>
-  </footer>
+  <!-- tiny SVG filter for a quick “smudge” look -->
+  <svg width="0" height="0" style="position:absolute;left:-9999px;top:-9999px">
+    <filter id="smear">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="1" seed="3" result="noise"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="4" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+  </svg>
 
-  <div id="toast" class="toast" role="status" aria-live="polite"></div>
-
-  <script src="app.js"></script>
-  <!-- Stone Modal -->
-<div id="stoneModal" class="modal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="stoneTitle">
-  <div class="modal-backdrop" data-close></div>
-  <div class="modal-card" role="document">
-    <header class="modal-header">
-      <h3 id="stoneTitle">Ghost Memory</h3>
-      <button class="modal-close" type="button" title="Close" data-close>&times;</button>
-    </header>
-
-    <div class="modal-body">
-      <p id="stoneGhost" class="modal-ghost"></p>
-
-      <div class="modal-classify">
-        <label class="block">How does it feel?</label>
-        <div class="modal-choices" role="group" aria-label="Choose a classification">
-          <button type="button" class="mc" data-class="green">🌱 Resonates</button>
-          <button type="button" class="mc" data-class="yellow">🌿 Partially right</button>
-          <button type="button" class="mc" data-class="red">🪦 Wrong / harmful</button>
-        </div>
-      </div>
-
-      <label for="stoneNote" class="block">Your note (optional)</label>
-      <textarea id="stoneNote" class="modal-note" placeholder="Add nuance or a correction…"></textarea>
-    </div>
-
-    <footer class="modal-footer">
-      <button type="button" id="stoneDelete" class="danger">Delete</button>
-      <div class="spacer"></div>
-      <button type="button" class="secondary" data-close>Cancel</button>
-      <button type="button" id="stoneSave" class="primary">Save</button>
-    </footer>
-  </div>
-</div>
-
+  <!-- One script only -->
+  <script src="js/intro.js"></script>
 </body>
 </html>

@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Memory Grove — App</title>
+  <!-- Your existing app CSS files -->
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/modal-styles.css" />
+   <link rel="stylesheet" href="css/ghost.css" />
+</head>
+<body>
+<header class="site-header">
+  <h1 class="brand">
+    <a href="index.html" class="brand-link" aria-label="Go to Memory Grove home">Memory Grove</a>
+  </h1>
+  <nav>
+    <button id="tab-ask" class="tab active" aria-controls="ghostSection">Ask the Ghost</button>
+    <button id="tab-grove" class="tab" aria-controls="groveSection">
+      Your Grove <span id="groveBadge" class="badge" aria-hidden="true" hidden>0</span>
+    </button>
+  </nav>
+</header>
+
+  <main>
+    <!-- Stepper -->
+    <div class="stepper" aria-hidden="true">
+      <span class="step step-ask active">1. Ask</span>
+      <span class="sep">›</span>
+      <span class="step step-read">2. Read</span>
+      <span class="sep">›</span>
+      <span class="step step-classify">3. Classify</span>
+      <span class="sep">›</span>
+      <span class="step step-plant">4. Plant</span>
+    </div>
+
+    <!-- Nudge -->
+    <div id="groveNudge" class="nudge" hidden>
+      Seed planted. View it in
+      <button id="gotoGrove" class="linky" type="button" aria-controls="groveSection">Your Grove</button>.
+    </div>
+
+    <!-- ASK PANEL -->
+    <section id="ghostSection" class="panel">
+      <h2>Encounter the Ghost</h2>
+
+      <form id="askForm" class="ask-row" aria-describedby="askHelp">
+        <textarea id="question" placeholder="Ask a culturally grounded question…" required minlength="3"></textarea>
+        <button id="askBtn" type="submit" disabled>Ask</button>
+      </form>
+      <p id="askHelp" class="help">
+        Tip: ask about practice, story, or meaning (e.g. “What does <em>ubuntu</em> mean in everyday life?”).
+      </p>
+
+      <!-- Reply “tombstone” -->
+      <div id="tombstoneSection" class="tombstone" hidden>
+        <div class="grave-top">
+          <div class="grave-icon" aria-hidden="true">🪦</div>
+          <div class="grave-inscription">Ghost Memory</div>
+        </div>
+
+        <!-- loading skeleton -->
+        <div id="skeleton" class="skeleton" hidden>
+          <div class="shimmer line"></div>
+          <div class="shimmer line"></div>
+          <div class="shimmer line short"></div>
+        </div>
+
+        <!-- errors -->
+        <div id="errorBox" class="error" hidden role="alert"></div>
+
+        <p id="tombstoneText" aria-live="polite"></p>
+
+        <!-- classification -->
+        <div class="classify" id="classifyBox" hidden>
+          <p class="help">Choose how it feels:</p>
+          <div class="classify-row" role="group" aria-label="Classify the ghost reply">
+            <button type="button" data-class="green"  title="Resonates (agreement)">Resonates</button>
+            <button type="button" data-class="yellow" title="Partial / nuance">Partially right</button>
+            <button type="button" data-class="red"    title="Counter-memory / reject">Wrong / harmful</button>
+          </div>
+
+          <label class="visually-hidden" for="note">Your note</label>
+          <textarea id="note" placeholder="Add a correction, nuance, or counter-memory (optional)"></textarea>
+
+          <div class="action-bar">
+            <span class="chip" id="selectedChip" hidden>—</span>
+            <button id="plantBtn" type="button" disabled>Plant Seed</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- GROVE PANEL -->
+    <section id="groveSection" class="panel" hidden>
+      <h2>Your Grove</h2>
+
+      <div class="grove-toolbar">
+        <button class="filter-btn" data-filter="all" aria-pressed="true">All</button>
+        <button class="filter-btn" data-filter="green" aria-pressed="false">Resonates</button>
+        <button class="filter-btn" data-filter="yellow" aria-pressed="false">Partially right</button>
+        <button class="filter-btn" data-filter="red" aria-pressed="false">Wrong / harmful</button>
+
+        <div class="spacer"></div>
+        <button id="exportBtn" type="button">Export</button>
+        <button id="importBtn" type="button">Import</button>
+        <input id="importFile" type="file" accept="application/json" hidden />
+      </div>
+
+      <div class="grove-frame">
+        <svg id="groveCanvas" viewBox="0 0 1200 700" preserveAspectRatio="xMidYMid meet">
+          <defs>
+            <linearGradient id="graveGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#1a1b22"/>
+              <stop offset="100%" stop-color="#0f1015"/>
+            </linearGradient>
+          </defs>
+
+          <rect id="bgRect" x="0" y="0" width="1200" height="700" fill="url(#graveGrad)"/>
+
+          <!-- Stones inserted by JS -->
+          <g id="stonesLayer"></g>
+        </svg>
+      </div>
+
+      <p class="hint">Tip: click a stone to open it. Double-click (or press “n”) to add notes for that label.</p>
+
+      <!-- Optional simple list (if you also want it visible) -->
+      <h3 style="margin-top:1rem">Seeds list</h3>
+      <p><strong id="seedCount">0 seeds</strong></p>
+      <ul id="seedList" class="seeds"></ul>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <small>Prototype for reflection. Seeds are stored locally on this device.</small>
+  </footer>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <!-- Stone modal -->
+  <div id="stoneModal" class="modal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="stoneTitle">
+    <div class="modal-backdrop" data-close></div>
+    <div class="modal-card" role="document">
+      <header class="modal-header">
+        <h3 id="stoneTitle">Ghost Memory</h3>
+        <button class="modal-close" type="button" title="Close" data-close>&times;</button>
+      </header>
+      <div class="modal-body">
+        <p id="stoneGhost" class="modal-ghost"></p>
+
+        <div class="modal-classify">
+          <label class="block">How does it feel?</label>
+          <div class="modal-choices" role="group" aria-label="Choose a classification">
+            <button type="button" class="mc" data-class="green">🌱 Resonates</button>
+            <button type="button" class="mc" data-class="yellow">🌿 Partially right</button>
+            <button type="button" class="mc" data-class="red">🪦 Wrong / harmful</button>
+          </div>
+        </div>
+
+        <label for="stoneNote" class="block">Your note (optional)</label>
+        <textarea id="stoneNote" class="modal-note" placeholder="Add nuance or a correction…"></textarea>
+      </div>
+      <footer class="modal-footer">
+        <button type="button" id="stoneDelete" class="danger">Delete</button>
+        <div class="spacer"></div>
+        <button type="button" class="secondary" data-close>Cancel</button>
+        <button type="button" id="stoneSave" class="primary">Save</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Notes modal (gets created dynamically by JS if missing, but having it is fine) -->
+  <div id="notesModal" class="modal" aria-hidden="true" role="dialog" aria-modal="true">
+    <div class="modal__backdrop" data-close></div>
+    <div class="modal__dialog" role="document">
+      <header class="modal__header">
+        <h3 id="notesTitle">Notes</h3>
+        <button class="modal-close" type="button" aria-label="Close" data-close>✕</button>
+      </header>
+      <div class="modal__body">
+        <ul id="notesList" class="notes-list"></ul>
+        <label class="visually-hidden" for="notesInput">Add a note</label>
+        <textarea id="notesInput" placeholder="Write a reply…"></textarea>
+      </div>
+      <footer class="modal__footer">
+        <div class="spacer"></div>
+        <button id="notesSave" class="btn-primary" type="button">Post</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Your app logic -->
+  <script src="js/app.js"></script>
+  <script src="js/ghost.js"></script> 
+</body>
+</html>

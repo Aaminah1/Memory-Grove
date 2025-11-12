@@ -14,6 +14,9 @@ let modalSelClass = null;
 let notesModal, notesTitleEl, notesListEl, notesInputEl, notesSaveBtn, notesCloseBtns = [];
 let notesSeedId = null;
 let notesClass = null;
+/* ---------- INPUT LIMITS ---------- */
+const MAX_QUESTION_CHARS = 240;   // tweak as you like
+
 
 /* ---------- UTIL ---------- */
 function showToast(msg) {
@@ -620,6 +623,17 @@ window.addEventListener('DOMContentLoaded', () => {
   const tabGrove = document.getElementById('tab-grove');
   const ghostSection = document.getElementById('ghostSection');
   const groveSection = document.getElementById('groveSection');
+// Deep-link support from intro (app.html#ask or #grove)
+const openByHash = () => {
+  const h = (location.hash || '').toLowerCase();
+  if (h.includes('grove')) {
+    tabGrove?.click();
+  } else {
+    tabAsk?.click(); // default
+  }
+};
+openByHash();
+window.addEventListener('hashchange', openByHash);
 
   tabAsk?.addEventListener('click', () => {
     tabAsk.classList.add('active'); tabGrove.classList.remove('active');
@@ -644,6 +658,44 @@ window.addEventListener('DOMContentLoaded', () => {
   const askForm = document.getElementById('askForm');
   const askBtn  = document.getElementById('askBtn');
   const questionEl = document.getElementById('question');
+// Hard cap: prevent typing/paste beyond limit and show live count
+let composing = false; // IME guard (e.g., Chinese/Japanese)
+if (questionEl) {
+  // reflect limit to the DOM attribute as well (helps mobile keyboards)
+  questionEl.setAttribute('maxlength', String(MAX_QUESTION_CHARS));
+
+  const qCountEl = document.getElementById('qCount');
+
+  const updateCount = () => {
+    const len = questionEl.value.length;
+    if (qCountEl) qCountEl.textContent = `${len}/${MAX_QUESTION_CHARS}`;
+    // Keep your existing min-length rule too
+    if (askBtn) askBtn.disabled = (len < 3);
+  };
+
+  // Composition events so we don't truncate mid-composition
+  questionEl.addEventListener('compositionstart', () => composing = true);
+  questionEl.addEventListener('compositionend', () => {
+    composing = false;
+    // clamp just in case a composed chunk overshot
+    if (questionEl.value.length > MAX_QUESTION_CHARS) {
+      questionEl.value = questionEl.value.slice(0, MAX_QUESTION_CHARS);
+    }
+    updateCount();
+  });
+
+  // Normal input (typing/paste)
+  questionEl.addEventListener('input', () => {
+    if (!composing && questionEl.value.length > MAX_QUESTION_CHARS) {
+      // hard clamp pastes/drag-drops
+      questionEl.value = questionEl.value.slice(0, MAX_QUESTION_CHARS);
+    }
+    updateCount();
+  });
+
+  // Initialize counter on load
+  updateCount();
+}
 
   const tombstone = document.getElementById('tombstoneSection');
   const tombText  = document.getElementById('tombstoneText');
@@ -678,11 +730,16 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  askForm?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const q = (questionEl?.value || '').trim();
-    if (q.length < 3) { questionEl?.focus(); showToast('Type a longer question.'); return; }
+askForm?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const qRaw = (questionEl?.value || '');
+  const q = qRaw.slice(0, MAX_QUESTION_CHARS).trim(); // final clamp + trim
 
+  if (q.length < 3) {
+    questionEl?.focus();
+    showToast('Type a longer question.');
+    return;
+  }
     setStep('read');
     if (askBtn){ askBtn.disabled = true; askBtn.textContent = 'Listening…'; }
     if (tombstone) tombstone.hidden = false;

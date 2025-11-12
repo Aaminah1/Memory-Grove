@@ -1,0 +1,138 @@
+:root{
+  --ink:#e7ebf4; --muted:#a5acb9;
+  --bg:#0b0d13; --bg2:#0d111b;
+}
+
+*{ box-sizing:border-box }
+html,body{ height:100% }
+body{
+  margin:0; color:var(--ink);
+  background:
+    radial-gradient(1200px 700px at 50% 0%, var(--bg2) 0%, var(--bg) 60%) fixed,
+    #0b0d13;
+  font:16px/1.6 ui-sans-serif, system-ui, Segoe UI, Roboto, sans-serif;
+  overflow-x:hidden;
+}
+
+/* ---------- HERO LAYOUT (upper third) ---------- */
+.intro{
+  min-height: 100svh;
+  display:flex;
+  justify-content:center;
+  align-items:flex-start;
+  padding-top:12vh;          /* raise/lower title here */
+  padding-inline:20px;
+  position:relative;
+  z-index:1;
+}
+.brand{ margin:0; text-align:center }
+
+/* ---------- TITLE ---------- */
+#title{
+  font-family:"Cinzel", ui-serif, Georgia, serif;
+  font-weight:700;
+  letter-spacing:.03em;
+  font-size: clamp(40px, 7vw, 96px);
+  line-height:1.04;
+  margin:0 0 .6rem;
+  text-transform:uppercase;
+
+  opacity:0; transform:translateY(16px) scale(1.01); filter:blur(8px);
+  animation: titleReveal 1.6s cubic-bezier(.19,.95,.12,.99) forwards .25s;
+
+  position:relative; isolation:isolate;
+}
+#title.revealed{ opacity:1 !important; transform:none !important; filter:none !important; animation:none !important; }
+
+/* per-letter spans */
+#title .ch{
+  position:relative;         /* needed for ::before/::after on a single letter */
+  display:inline-block;
+  opacity:1; transform:none; filter:none;
+}
+
+/* tiny idle nudge */
+#title .ch.g{ animation: letterNudge 220ms steps(2,end) 1 }
+@keyframes letterNudge{
+  0%{ transform: translate(0,0) }
+  50%{ transform: translate(1px,-1px) skewX(4deg) }
+  100%{ transform: translate(0,0) }
+}
+
+/* swapped letter emphasis */
+#title .ch.alt{
+  color:#fff;
+  text-shadow: 0 0 18px rgba(255,255,255,.25);
+  transform: translateY(-1px) scale(1.03);
+}
+
+/* one-time reveal */
+@keyframes titleReveal{
+  0%{ opacity:0; transform:translateY(16px) scale(1.01); filter:blur(8px); letter-spacing:.07em }
+  60%{ opacity:.9 }
+  100%{ opacity:1; transform:none; filter:blur(0); letter-spacing:.03em }
+}
+
+/* ---------- WORD-ONLY RGB EDGE (GROVE/GRAVE) ---------- */
+.wordWrap{ position:relative; display:inline-block }
+.wordWrap.rgbWord::before,
+.wordWrap.rgbWord::after{
+  content: attr(data-word);
+  position:absolute; inset:0; pointer-events:none;
+  mix-blend-mode:screen;
+  opacity:.9;
+  filter: blur(.8px) saturate(1.35);
+}
+.wordWrap.rgbWord::before{ color:#ff2a6d; transform:translate(6px,-3px) skewX(6deg) }
+.wordWrap.rgbWord::after { color:#2ad4ff; transform:translate(-6px,3px) skewX(-6deg) }
+.wordWrap.pulse{ animation: wordPulse 950ms cubic-bezier(.2,.85,.1,1) 1 }
+@keyframes wordPulse{
+  0%{ transform:none; letter-spacing:inherit }
+  35%{ transform:scale(1.035); letter-spacing:.06em }
+  100%{ transform:none; letter-spacing:inherit }
+}
+
+/* ---------- MEMORY DECAY: per-letter edge/halo/flip ---------- */
+#title .ch.rgbEdge::before,
+#title .ch.rgbEdge::after{
+  content: attr(data-ch);
+  position:absolute; inset:0; pointer-events:none;
+  mix-blend-mode:screen;
+  opacity:.9; filter:blur(.7px) saturate(1.35);
+}
+#title .ch.rgbEdge::before{ color:#ff2a6d; transform:translate(3px,-2px) skewX(4deg) }
+#title .ch.rgbEdge::after { color:#2ad4ff; transform:translate(-3px,2px) skewX(-4deg) }
+#title .ch.swapGlow{
+  text-shadow: 0 0 28px rgba(255,255,255,.55), 0 0 56px rgba(160,200,255,.45);
+}
+#title .ch.flipY { transform: scaleY(-1); }
+#title .ch.flipX { transform: scaleX(-1); }
+
+/* ghost trails */
+#title .ch.trail::before,
+#title .ch.trail::after{
+  content: attr(data-ch);
+  position:absolute; inset:0; pointer-events:none;
+  opacity:.16; filter:blur(0.6px);
+}
+#title .ch.trail::before{ transform:translate(1px, 0.5px) scale(1.01); }
+#title .ch.trail::after { transform:translate(-1px,-0.5px) scale(1.01); opacity:.10; }
+
+/* fade/smudge/drip */
+#title .ch.fade { opacity:.45; transform:translateY(1px) scale(0.98); transition:opacity .15s linear, transform .15s linear; }
+#title .ch.smudge { filter:url(#smear) blur(0.4px) contrast(1.05); animation:smudgeShake 260ms steps(2,end) 1; }
+@keyframes smudgeShake{ 0%{transform:translate(0,0) skewX(0)} 50%{transform:translate(1px,-1px) skewX(5deg)} 100%{transform:translate(0,0) skewX(0)} }
+#title .ch.drip::after{
+  content:''; position:absolute; left:50%; top:65%; width:4px; height:4px; margin-left:-2px;
+  background: radial-gradient(circle at 50% 50%, #e7ebf4 0%, rgba(231,235,244,.0) 70%);
+  filter:blur(0.4px); animation:dripFall 420ms ease-in forwards;
+}
+@keyframes dripFall{ 0%{transform:translate(-50%,0);opacity:.9} 90%{transform:translate(-50%,18px);opacity:.9} 100%{transform:translate(-50%,20px) scale(.6);opacity:0} }
+
+/* subtitle stays hidden for now */
+.sub{ color:var(--muted); font-size:clamp(14px,2.2vw,18px); margin:0; opacity:0 }
+
+/* accessibility */
+@media (prefers-reduced-motion: reduce){
+  #title{ animation:none; opacity:1; transform:none; filter:none }
+}

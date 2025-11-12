@@ -1,0 +1,253 @@
+/* ===== Memory Grove — Classic Wisp Ghost ===== */
+/* Base */
+/* Base size a bit larger, proportioned for a tall sheet */
+.ghost{
+  width: clamp(150px, 20vw, 280px);
+  height: clamp(200px, 28vw, 360px);
+}
+.ghost.tall{
+  height: clamp(260px, 34vw, 460px);
+}
+
+/* Hide arms when requested */
+.ghost.noarms .arm{ display:none !important; }
+
+/* Pure sheet look (keeps your blink + aura + bubble) */
+.ghost.noblob .blob, .ghost.noblob .tail{ display:none }
+
+/* —— Long cloth body — dome top, draped sides, central fold —— */
+.ghost.variant-sheet .body{
+  position:absolute;
+  left: 6%; right: 6%;
+  top: 2%; bottom: 14%;               /* more length */
+  border-radius: 48% 48% 62% 62% / 46% 46% 78% 78%;
+  background:
+    /* central highlight column */
+    radial-gradient(60% 100% at 50% 28%, rgba(245,248,255,.85), rgba(210,228,255,.38) 55%, rgba(120,160,220,.08) 80%, transparent 82%),
+    /* side shading */
+    linear-gradient(90deg, rgba(90,120,175,.10), rgba(0,0,0,0) 28%, rgba(0,0,0,0) 72%, rgba(90,120,175,.10)),
+    /* overall soft tone */
+    linear-gradient(180deg, rgba(235,242,255,.75), rgba(200,220,255,.42) 55%, rgba(160,185,235,.16) 80%, rgba(140,170,225,.06));
+  filter: blur(.15px);
+}
+
+/* subtle fold lines (painted on top) */
+.ghost.variant-sheet .body::before,
+.ghost.variant-sheet .body::after{
+  content:""; position:absolute; inset: 8% 10% 10% 10%;
+  background:
+    radial-gradient(60% 140% at 35% 30%, rgba(80,110,170,.18), transparent 60%) no-repeat,
+    radial-gradient(60% 140% at 65% 30%, rgba(80,110,170,.18), transparent 60%) no-repeat,
+    radial-gradient(30% 120% at 50% 65%, rgba(70,100,160,.20), transparent 70%) no-repeat;
+  mix-blend-mode: multiply; opacity:.55;
+  pointer-events:none;
+}
+
+/* deeper scalloped hem that gently sways */
+.ghost.variant-sheet .hem{
+  position:absolute; left:4%; right:4%; bottom:-1.5%;
+  height: 20%;
+  pointer-events:none;
+}
+.ghost.variant-sheet .hem::before{
+  content:"";
+  position:absolute; inset:0;
+  background: linear-gradient(180deg, rgba(220,235,255,.55), rgba(120,160,220,0));
+  -webkit-mask: radial-gradient(26px 12px at 8% 100%, #000 98%, transparent 100%) repeat-x 0 0/ 11% 100%;
+          mask: radial-gradient(26px 12px at 8% 100%, #000 98%, transparent 100%) repeat-x 0 0/ 11% 100%;
+  transform-origin: 50% 0%;
+  animation: hemDrift 3.9s ease-in-out infinite;
+  filter: blur(1px);
+}
+@keyframes hemDrift{
+  0%,100%{ transform: translateY(0) }
+  50%    { transform: translateY(3px) }
+}
+
+/* Eyes a touch higher and oval; blink stays */
+.ghost .eye{
+  top: 34%;
+  width: 15%; height: 18%;
+  background:#0b0f18; border-radius: 48% 48% 44% 44%;
+}
+.ghost .eye.left  { left: 32%; }
+.ghost .eye.right { right: 32%; }
+
+.ghost {
+  position: fixed;
+  left: 50%;
+  top: 56vh;
+  transform: translate(-50%, -50%);
+  width: clamp(140px, 20vw, 260px);
+  height: clamp(140px, 20vw, 260px);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 1.8s cubic-bezier(.19,.95,.12,.99);
+  z-index: 3;
+  filter: drop-shadow(0 18px 48px rgba(160,200,255,.28));
+}
+.ghost.on { opacity: 1; }
+.ghost .wrap { position:relative; width:100%; height:100%; animation: floatY 6.6s ease-in-out infinite; }
+@keyframes floatY { 0%,100%{ transform: translateY(0) rotate(0.2deg) } 50%{ transform: translateY(-10px) rotate(-0.4deg) } }
+
+/* ———————————————————
+   SHEET VARIANT
+——————————————————— */
+.ghost.variant-sheet .body{
+  position:absolute; inset: 2% 4% 10% 4%;
+  background:
+    radial-gradient(65% 55% at 50% 35%, rgba(238,244,255,.92), rgba(205,222,255,.48) 62%, rgba(130,165,225,.10) 85%, rgba(0,0,0,0) 86%),
+    radial-gradient(80% 90% at 50% 70%, rgba(165,195,245,.14), rgba(70,100,160,.05) 74%, rgba(0,0,0,0) 80%);
+  border-radius: 45% 45% 60% 60% / 42% 42% 70% 70%;
+  filter: blur(.2px);
+}
+.ghost.variant-sheet .hem{
+  position:absolute; left:6%; right:6%; bottom:-2%;
+  height: 18%;
+  background:
+    radial-gradient(60% 100% at 50% 0%, rgba(210,230,255,.35), rgba(130,165,225,0) 70%);
+  mix-blend-mode: screen;
+  filter: blur(1.6px);
+}
+.ghost.variant-sheet .hem::after{
+  content:"";
+  position:absolute; inset:0;
+  /* scalloped cut using mask */
+  -webkit-mask:
+    radial-gradient(20px 12px at 10% 100%, #000 98%, transparent 100%) repeat-x 0 0/ 12% 100%;
+          mask:
+    radial-gradient(20px 12px at 10% 100%, #000 98%, transparent 100%) repeat-x 0 0/ 12% 100%;
+  background: linear-gradient(to bottom, rgba(220,235,255,.55), rgba(120,160,220,.0));
+  transform-origin: 50% 0%;
+  animation: hemSway 3.8s ease-in-out infinite;
+}
+@keyframes hemSway { 0%,100%{ transform: translateY(0) } 50%{ transform: translateY(2px) } }
+
+.ghost.variant-sheet .arm{
+  position:absolute; top: 46%;
+  width: 24%; height: 18%; border-radius: 50%;
+  background: radial-gradient(70% 70% at 50% 40%, rgba(235,242,255,.75), rgba(120,160,220,.12) 82%, rgba(0,0,0,0) 83%);
+  filter: blur(.25px);
+}
+.ghost.variant-sheet .arm.left  { left: -2%; transform: rotate(-12deg); }
+.ghost.variant-sheet .arm.right { right: -2%; transform: rotate( 12deg); }
+
+/* Hide wisp internals if pure sheet */
+.ghost.noblob .blob, .ghost.noblob .tail { display:none }
+
+/* Eyes (bigger, oval) */
+.ghost .eye{
+  position:absolute; top: 40%;
+  width: 16%; height: 20%;
+  background: #0b0f18;
+  border-radius: 50% 50% 46% 46%;
+  box-shadow: inset 0 -2px 0 rgba(255,255,255,.05);
+}
+.ghost .eye.left  { left: 30%; }
+.ghost .eye.right { right: 30%; }
+
+/* Blink: squash vertically rather than just shrink height */
+.ghost.blink .eye{
+  animation: blink 120ms linear 1;
+}
+@keyframes blink{
+  0%   { transform: scaleY(1); }
+  50%  { transform: scaleY(.12); }
+  100% { transform: scaleY(1); }
+}
+
+/* Aura stays subtle */
+.ghost .aura{
+  position:absolute; inset:-16%;
+  border-radius:50%;
+  background: radial-gradient(60% 60% at 50% 50%, rgba(185,215,255,.22), rgba(100,140,220,.08) 60%, rgba(60,80,120,0) 70%);
+  filter: blur(12px);
+  mix-blend-mode: screen;
+  animation: aura 7.5s ease-in-out infinite;
+}
+@keyframes aura{ 0%,100%{ opacity:.65 } 50%{ opacity:.85 } }
+
+/* Bubble unchanged; keep your glitch animation */
+
+/* Speech bubble (same as before) */
+.ghost .bubble {
+  position: absolute;
+  left: 50%; top: -14%;
+  transform: translate(-50%, -10px);
+  max-width: 70ch;
+  padding: .65rem .8rem;
+  font: 15px/1.5 ui-sans-serif, system-ui, Segoe UI, Roboto, sans-serif;
+  color: #e8edf8;
+  background: linear-gradient(180deg, rgba(25,30,45,.9), rgba(18,22,35,.9));
+  border: 1px solid rgba(70,90,140,.45);
+  border-radius: 10px;
+  box-shadow: 0 8px 26px rgba(0,0,0,.35), inset 0 0 40px rgba(80,120,200,.06);
+  opacity: 0; pointer-events: none;
+  transition: opacity .35s ease, transform .35s ease;
+  backdrop-filter: blur(4px);
+  white-space: pre-wrap;
+}
+.ghost .bubble:after {
+  content:"";
+  position: absolute; left: 50%; bottom: -8px; transform: translateX(-50%);
+  border: 8px solid transparent;
+  border-top-color: rgba(25,30,45,.9);
+}
+.ghost .bubble.on { opacity: 1; transform: translate(-50%, 0); }
+
+.ghost .bubble.glitch { animation: glch 420ms steps(2) 1; }
+@keyframes glch {
+  0% { clip-path: inset(0 0 0 0); filter: hue-rotate(0deg) saturate(1); }
+  20%{ clip-path: inset(2% 0 0 0); filter: hue-rotate(10deg) saturate(1.1); }
+  45%{ clip-path: inset(0 0 3% 0); filter: hue-rotate(-12deg) saturate(1.15); }
+  70%{ clip-path: inset(1% 0 1% 0); filter: hue-rotate(6deg) saturate(1.05); }
+  100%{ clip-path: inset(0 0 0 0); filter: none; }
+}
+
+/* Idle “misfiring memory” flicker */
+.ghost.flicker { animation: wispFlick .7s steps(2) 1; }
+
+@keyframes wispFloat { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-8px) } }
+@keyframes tailWave  { 0%,100% { transform: translateX(-50%) translateY(0) } 50% { transform: translateX(calc(-50% + 2px)) translateY(2px) } }
+@keyframes auraPulse { 0%,100% { opacity:.65 } 50% { opacity:.85 } }
+@keyframes wispFlick { 0%{opacity:.25} 50%{opacity:1} 100%{opacity:.55} }
+
+/* A11y */
+@media (prefers-reduced-motion: reduce){
+  .ghost .wrap, .ghost .tail, .ghost .aura { animation: none !important; }
+}
+/* ===== Full-body sheet ghost extensions ===== */
+.ghost.slowfade { transition: opacity 2.8s cubic-bezier(.19,.95,.12,.99); }
+
+/* Build a sheet-style body on top of the existing blob/tail
+   (you can hide the blob/tail by adding .ghost.noblob if you prefer) */
+.ghost .body {
+  position: absolute; inset: 0;
+  border-radius: 40% 40% 55% 55% / 42% 42% 70% 70%;
+  background:
+    radial-gradient(65% 60% at 50% 35%, rgba(230,240,255,.85), rgba(190,220,255,.4) 60%, rgba(120,160,220,.12) 78%, rgba(0,0,0,0) 82%),
+    radial-gradient(90% 90% at 50% 65%, rgba(150,185,240,.15), rgba(60,90,150,.06) 70%, rgba(0,0,0,0) 80%);
+  filter: blur(.2px);
+}
+.ghost .hem {
+  position: absolute; left: 8%; right: 8%; bottom: -3%;
+  height: 14%;
+  background:
+    radial-gradient(60% 100% at 50% 0%, rgba(200,225,255,.35), rgba(120,160,220,.0) 70%);
+  mix-blend-mode: screen;
+  filter: blur(2px);
+}
+
+/* little arms */
+.ghost .arm {
+  position: absolute; top: 48%;
+  width: 22%; height: 16%;
+  border-radius: 50%;
+  background: radial-gradient(70% 70% at 50% 40%, rgba(230,240,255,.7), rgba(120,160,220,.12) 80%, rgba(0,0,0,0) 82%);
+  filter: blur(.3px);
+}
+.ghost .arm.left  { left: -4%; transform: rotate(-14deg); }
+.ghost .arm.right { right: -4%; transform: rotate( 14deg); }
+
+/* Optional: hide old blob/tail if you want pure sheet look */
+/* .ghost.noblob .blob, .ghost.noblob .tail { display:none } */
