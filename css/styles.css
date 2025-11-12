@@ -79,6 +79,16 @@ textarea {
   width:100%; min-height:72px; padding:.6rem;
   background:#10121a; border:1px solid #2a2b33; border-radius:10px; color:#fff;
 }
+/* Character counter */
+#qCount {
+  font-size: 0.85rem;
+  color: #9aa0aa;
+}
+#qCount.limit {
+  color: #e5534b;           /* turns red at max */
+  font-weight: 600;
+}
+
 button {
   background:#2a2d3a; border:1px solid #2a2b33; color:#e6e6e6;
   padding:.55rem 1rem; border-radius:10px; cursor:pointer; transition:.15s ease;

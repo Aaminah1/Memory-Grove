@@ -15,7 +15,7 @@ let notesModal, notesTitleEl, notesListEl, notesInputEl, notesSaveBtn, notesClos
 let notesSeedId = null;
 let notesClass = null;
 /* ---------- INPUT LIMITS ---------- */
-const MAX_QUESTION_CHARS = 240;   // tweak as you like
+const MAX_QUESTION_CHARS = 150;   // tweak as you like
 
 
 /* ---------- UTIL ---------- */
@@ -644,7 +644,10 @@ if (questionEl) {
 
   const updateCount = () => {
     const len = questionEl.value.length;
-    if (qCountEl) qCountEl.textContent = `${len}/${MAX_QUESTION_CHARS}`;
+   if (qCountEl) {
+  qCountEl.textContent = `${len}/${MAX_QUESTION_CHARS}`;
+  qCountEl.classList.toggle('limit', len >= MAX_QUESTION_CHARS - 10);
+}
     // Keep your existing min-length rule too
     if (askBtn) askBtn.disabled = (len < 3);
   };
