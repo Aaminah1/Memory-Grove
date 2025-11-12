@@ -254,6 +254,23 @@ position: absolute;
   filter: contrast(1.15) saturate(1.1);
 }
 #ghost.evil .face-evil { opacity: 1 !important; }
+/* ===== Mini-ghost face swap (follower/perched/drifter) ===== */
+.followerGhost .face-evil,
+.perchGhost   .face-evil,
+.drifterGhost .face-evil { opacity: 0; transition: opacity .18s ease; }
+
+.followerGhost.evil .face-normal,
+.perchGhost.evil   .face-normal,
+.drifterGhost.evil .face-normal { opacity: 0; }
+
+.followerGhost.evil .face-evil,
+.perchGhost.evil   .face-evil,
+.drifterGhost.evil .face-evil { opacity: 1; }
+
+/* keep the tiny “nudge” glitch anim on minis */
+.followerGhost.glitch .sprite,
+.perchGhost.glitch   .sprite,
+.drifterGhost.glitch .sprite { animation: ghostGlitch .16s steps(2,end) 1; }
 
 /* optional word wobble + rgb edge (kept) */
 @keyframes wobble{

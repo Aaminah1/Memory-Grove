@@ -182,7 +182,7 @@ body::after{
 #ghostSwarm{
   position:absolute; inset:0;
   pointer-events:none;
-  z-index: 1;                    /* <-- above ::before */
+  z-index: 6;                    /* <-- above ::before */
 }
 
 /* ============== SPARKLES (soft, slow, subtle) ============== */
@@ -203,13 +203,15 @@ body::after{
 
 /* ============== GLYPHS (rise+sway+glow) ============== */
 #gauntlet .fx-glyphs .g{
+    mix-blend-mode: screen; 
   position:absolute;
   left: var(--x, 50%);
   top:  calc(100% + 10vh);       /* start below view */
   transform: translate3d(0,0,0);
-  color: rgba(220,230,255,.18);
+   color: rgba(235,240,255,.40);         /* was ~.18 */
+  filter: none;                
   font: 600 clamp(14px,2.4vw,28px) ui-monospace, "Courier New", monospace;
-  filter: blur(.25px);
+ 
   opacity: 0;
   animation:
     glyphRise var(--dur,18s) linear infinite,
@@ -218,7 +220,11 @@ body::after{
 }
 @keyframes glyphRise { from { transform: translate3d(0,0,0); } to { transform: translate3d(0,-140vh,0); } }
 @keyframes glyphSway { 0%,100% { margin-left: 0; } 50% { margin-left: var(--dx, 10vw); } }
-@keyframes glyphGlow { 0%,100% { opacity: 0; } 10%,90% { opacity: .22; } 50% { opacity: .34; } }
+@keyframes glyphGlow{
+  0%,100% { opacity: .12; }
+  10%,90% { opacity: .42; }
+  50%     { opacity: .60; }
+}
 
 /* Swarm (kept above FX for readability; currently not spawning) */
 #ghostSwarm{ z-index: 2; }
@@ -231,7 +237,117 @@ body::after{
       border:1px solid rgba(255,255,255,.14); transition:transform .12s ease, background .2s; }
 .btn:hover{ transform:translateY(-1px) }
 .btn.primary{ background:#e7ebf4; color:#0b0d13; }
-.btn.ghost{ background:transparent; color:#e7ebf4; }
+.btn.ghost{ background:transparent; color:#e7f4e7; }
+/* ===== CTA hover-fork (subtle, accessible) ===== */
+
+/* When CTA is active, thicken the veil and make glyphs feel “pulled” inward */
+#gauntlet.cta-active { --gVeil: .92; }
+#gauntlet.cta-active .fx-glyphs .g{
+  animation-duration: calc(var(--dur, 18s) * .75); /* rise a bit faster */
+  filter: blur(.15px) drop-shadow(0 0 12px rgba(180,200,255,.15));
+  opacity: .38;
+}
+
+/* Button hover — gentle lift */
+#gauntlet .gauntlet-cta .btn{
+  position: relative;
+  overflow: hidden;
+  transition: transform .18s cubic-bezier(.2,.8,.2,1), box-shadow .18s;
+}
+#gauntlet .gauntlet-cta .btn:hover{
+  transform: translateY(-2px);
+  box-shadow: 0 12px 32px rgba(0,0,0,.35), 0 0 0 1px rgba(170,200,255,.18) inset;
+}
+
+/* RGB “truth split” on hover (reads as a quick glitch but stays elegant) */
+#gauntlet .gauntlet-cta .btn::before,
+#gauntlet .gauntlet-cta .btn::after{
+  content: attr(data-label);
+  position: absolute; inset: 0;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  opacity: 0;
+}
+#gauntlet .gauntlet-cta .btn:hover::before{
+  color: #ff2a6d; opacity: .95; transform: translate(2px,-1px) skewX(3deg);
+  animation: btnGlitch 420ms steps(2,end) 1;
+}
+#gauntlet .gauntlet-cta .btn:hover::after{
+  color: #2ad4ff; opacity: .95; transform: translate(-2px,1px) skewX(-3deg);
+  animation: btnGlitch 420ms steps(2,end) 1;
+}
+@keyframes btnGlitch{
+  0%{ clip-path: inset(0 0 62% 0) }
+  50%{ clip-path: inset(38% 0 0 0) }
+  100%{ clip-path: inset(0 0 0 0) }
+}
+/* PRIMARY → grows + goes green on hover; deeper green on active */
+.btn.primary{
+  /* current base */
+  background:#e7ebf4; 
+  color:#0b0d13;
+
+  /* upgrades */
+  border:1px solid rgba(255,255,255,.14);
+  transition:
+    transform .18s cubic-bezier(.2,.8,.2,1),
+    background .25s ease,
+    color .25s ease,
+    border-color .25s ease,
+    box-shadow .25s ease;
+}
+
+/* optional: disable the RGB “glitch split” on this button only */
+/* (delete this block if you want to keep the split effect) */
+.gauntlet-cta .btn.primary::before,
+.gauntlet-cta .btn.primary::after{
+  content: none !important;
+}
+
+/* hover — subtle lift + green gradient */
+.btn.primary:hover{
+  color:#ffffff;
+  transform: translateY(-1px) scale(1.02);
+  background: linear-gradient(180deg, #39cc85, #1f8e5a);
+  border-color: rgba(44,162,103,.95);
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,.06) inset,
+    0 12px 28px rgba(0,0,0,.38);
+}
+
+/* active — press down slightly + deeper green */
+.btn.primary:active{
+  transform: translateY(0) scale(0.995);
+  background: linear-gradient(180deg, #1f8e5a, #176a45);
+  border-color: rgba(5, 138, 8, 0.95);
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,.05) inset,
+    0 6px 16px rgba(0,0,0,.32);
+}
+
+/* focus-visible — accessible green ring */
+.btn.primary:focus-visible{
+  outline: none;
+  box-shadow:
+    0 0 0 2px rgba(10,14,22,1),
+    0 0 0 4px rgba(13, 139, 4, 0.55);
+}
+
+/* respect reduced motion */
+@media (prefers-reduced-motion: reduce){
+  .btn.primary{ transition: background .25s ease, color .25s ease, border-color .25s ease, box-shadow .25s ease; }
+  .btn.primary:hover, .btn.primary:active{ transform: none; }
+}
+
+/* Respect reduced motion: keep the metaphor but remove motion */
+@media (prefers-reduced-motion: reduce){
+  #gauntlet .gauntlet-cta .btn:hover{
+    transform: none; box-shadow: 0 0 0 1px rgba(170,200,255,.18) inset;
+  }
+  #gauntlet .gauntlet-cta .btn::before,
+  #gauntlet .gauntlet-cta .btn::after{ animation: none; }
+  #gauntlet.cta-active .fx-glyphs .g{ animation-duration: var(--dur,18s); }
+}
 
 /* global veil easing while in gauntlet */
 body::after{ opacity: var(--abyss, 0); }
@@ -316,3 +432,9 @@ body.in-gauntlet::after{ opacity: .15; }
 
 /* “crowd” look: bubbles can overlap a bit without being unreadable */
 .askBubble { mix-blend-mode: normal; }
+.followerGhost,
+.perchGhost,
+.drifterGhost {
+  z-index: 6;              /* above .gauntlet-cta (z 3–4) */
+  pointer-events: none;    /* don't steal clicks */
+}
