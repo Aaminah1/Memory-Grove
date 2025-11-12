@@ -1,9 +1,14 @@
 /* Fixed background layer behind content */
-#bg{
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;           /* stay untouchable */
+ #bg{
+   position: sticky;     /* holds for one viewport, then lets go */
+   top: 0;
+   height: 100vh;
+   inset: auto 0 auto 0; /* only left/right clamp */
+   margin-bottom: -100vh; 
+   z-index: 0;
+   pointer-events: none;
+   -webkit-mask-image: linear-gradient(to bottom, #000 75%, rgba(0,0,0,0) 100%);
+          mask-image: linear-gradient(to bottom, #000 75%, rgba(0,0,0,0) 100%);
 }
 
 /* Fog/smoke canvas */

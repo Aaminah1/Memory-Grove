@@ -2,7 +2,7 @@
 
 /* ----- ghost container under the title ----- */
 #ghost{
-  position: fixed;
+position: absolute;
   left: 50%;
   top: clamp(110px, 30vh, 280px);
 

@@ -1,11 +1,14 @@
 :root{
   --ink:#e7ebf4; --muted:#a5acb9;
   --bg:#0b0d13; --bg2:#0d111b;
+   --sceneHeight: 800vh;   /* try 300–800vh */
+
 }
 
 *{ box-sizing:border-box }
 html,body{ height:100% }
 body{
+  min-height: var(--sceneHeight);
   margin:0; color:var(--ink);
   background:
     radial-gradient(1200px 700px at 50% 0%, var(--bg2) 0%, var(--bg) 60%) fixed,
@@ -13,7 +16,19 @@ body{
   font:16px/1.6 ui-sans-serif, system-ui, Segoe UI, Roboto, sans-serif;
   overflow-x:hidden;
 }
-
+body::after{
+  content:"";
+  position: fixed; inset: 0;
+  pointer-events: none;
+  mix-blend-mode: multiply;
+  opacity: var(--abyss, 0);
+  background:
+    radial-gradient(1200px 700px at 50% -10%,
+      rgba(0,0,0,0) 0%,
+      rgba(0,0,0,.35) 50%,
+      rgba(0,0,0,.90) 100%);
+  transition: opacity 180ms linear;
+}
 /* ---------- HERO LAYOUT (upper third) ---------- */
 .intro{
   min-height: 100svh;

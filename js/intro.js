@@ -176,3 +176,15 @@ setTimeout(() => {
     }
   });
 });
+(() => {
+  const body = document.body;
+  const range = Math.round(window.innerHeight * 1.2);
+  const onScroll = () => {
+    const p = Math.max(0, Math.min(1, window.scrollY / range));
+    const eased = p*p*(3 - 2*p);         // soft ease
+    body.style.setProperty('--abyss', eased.toFixed(3));
+  };
+  addEventListener('scroll', onScroll, { passive: true });
+  addEventListener('resize', onScroll);
+  onScroll();
+})();
