@@ -184,6 +184,9 @@ position: absolute;
   /* default faster rhythm; JS will randomize per-eye */
   animation: eyeBlink var(--blinkDur, 4.2s) steps(1,end) infinite;
 }
+#ghost.blink-now .eye {
+  transform: scaleY(0.05);
+}
 #ghost .eye:nth-of-type(2){
   /* desync the second eye slightly */
   animation-delay: var(--blinkDelay, 1.0s);
@@ -235,8 +238,22 @@ position: absolute;
   50%{ transform: translate(-.5px,  .5px) skewX(-.6deg) }
   100%{ transform: translate(0,0) }
 }
+/* Evil face swap */
+#ghost .face-normal,
+#ghost .face-evil {
+  transition: opacity 180ms ease;
+  opacity: 1;
+}
+#ghost .face-evil { opacity: 0; }
 
+#ghost.evil .face-normal { opacity: 0; }
+#ghost.evil .face-evil   { opacity: 1; }
 
+/* Optional: a slightly meaner tint during evil pulses */
+#ghost.glitch-strong .sprite {
+  filter: contrast(1.15) saturate(1.1);
+}
+#ghost.evil .face-evil { opacity: 1 !important; }
 
 /* optional word wobble + rgb edge (kept) */
 @keyframes wobble{

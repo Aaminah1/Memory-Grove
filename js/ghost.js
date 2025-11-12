@@ -245,28 +245,47 @@ function clamp(n, a, b){ return Math.max(a, Math.min(b, n)); }
     }
   }
 
-
-function scheduleAmbientGlitches(){
+/* More frequent colour/glitch pulses + evil hold */
+function scheduleAmbientGlitches({
+  microMin = 1100,  // tiny chroma jitter every ~1.1–2.0s
+  microMax = 2000,
+  strongMin = 3200, // strong pulse (with evil face) every ~3.2–5.2s
+  strongMax = 5200,
+  evilHoldMs = 850  // keep evil visible a bit longer for readability
+} = {}) {
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
-  // frequent small glitches: now ~1.6–2.8s
+  // Micro-glitch loop (quick RGB slice)
   (function microLoop(){
-    const wait = 1600 + Math.random()*1200;   // was 3000–6000
+    const wait = microMin + Math.random() * (microMax - microMin);
     setTimeout(() => {
       ghostEl.classList.add('glitch');
-      setTimeout(() => ghostEl.classList.remove('glitch'), 220);
+      setTimeout(() => ghostEl.classList.remove('glitch'), 200);
       microLoop();
     }, wait);
   })();
 
-  // stronger pulse (evil face) every ~5–9s
+  // Strong pulse loop: add evil face, extra pop, then release
   (function strongLoop(){
-    const wait = 5000 + Math.random()*4000;   // was 7000–13000
+    const wait = strongMin + Math.random() * (strongMax - strongMin);
     setTimeout(async () => {
+      // enter evil + strong chroma pop
       ghostEl.classList.add('evil','glitch','glitch-strong');
-      setTimeout(() => ghostEl.classList.remove('glitch'), 260);
-      await new Promise(r => setTimeout(r, 700 + Math.random()*600));
-      ghostEl.classList.remove('evil','glitch-strong');
+
+      // optional: blink once right as it turns evil for effect
+      ghostEl.classList.add('blink-now');
+      setTimeout(() => ghostEl.classList.remove('blink-now'), 160);
+
+      // keep evil a moment so the user actually sees it
+      await new Promise(r => setTimeout(r, evilHoldMs));
+
+      // fade back
+      ghostEl.classList.remove('glitch');
+      ghostEl.classList.remove('glitch-strong');
+
+      // give the evil face a tiny trailing tail so it doesn’t strobe
+      setTimeout(() => ghostEl.classList.remove('evil'), 120);
+
       strongLoop();
     }, wait);
   })();
@@ -409,12 +428,13 @@ window.addEventListener('intro:reveal-done', async () => {
  await runSpeechThenFragments();
 
 startWanderMode();
-  setupBlinkRandomization();
-  // 5) Ambient glitches/evil pulses in the background
- scheduleGhostColorGlitches({
-  minDelay: 4500,  // add an extra colour-pop roughly every 4.5–7.5s
-  maxDelay: 7500,
-  strongEvery: 2   // every second pulse uses the strong variant
+setupBlinkRandomization();
+scheduleAmbientGlitches({
+  microMin: 1100,
+  microMax: 2000,
+  strongMin: 3200,
+  strongMax: 5200,
+  evilHoldMs: 850
 });
 });
 
