@@ -245,31 +245,33 @@ function clamp(n, a, b){ return Math.max(a, Math.min(b, n)); }
     }
   }
 
+
 function scheduleAmbientGlitches(){
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
-  // frequent small glitches: 3–6s
+  // frequent small glitches: now ~1.6–2.8s
   (function microLoop(){
-    const wait = 3000 + Math.random()*3000;
+    const wait = 1600 + Math.random()*1200;   // was 3000–6000
     setTimeout(() => {
       ghostEl.classList.add('glitch');
-      setTimeout(() => ghostEl.classList.remove('glitch'), 200);
+      setTimeout(() => ghostEl.classList.remove('glitch'), 220);
       microLoop();
     }, wait);
   })();
 
-  // rarer strong glitch + evil face: 10–18s
+  // stronger pulse (evil face) every ~5–9s
   (function strongLoop(){
- const wait = 7000 + Math.random()*6000; 
+    const wait = 5000 + Math.random()*4000;   // was 7000–13000
     setTimeout(async () => {
-      ghostEl.classList.add('evil','glitch');
-      setTimeout(() => ghostEl.classList.remove('glitch'), 220);
-      await new Promise(r => setTimeout(r, 900 + Math.random()*700));
-      ghostEl.classList.remove('evil');
+      ghostEl.classList.add('evil','glitch','glitch-strong');
+      setTimeout(() => ghostEl.classList.remove('glitch'), 260);
+      await new Promise(r => setTimeout(r, 700 + Math.random()*600));
+      ghostEl.classList.remove('evil','glitch-strong');
       strongLoop();
     }, wait);
   })();
 }
+
 
 // --- short lines for the GAI metaphor (choose one at random) ---
 const BUBBLE_SCRIPTS = [
@@ -409,7 +411,11 @@ window.addEventListener('intro:reveal-done', async () => {
 startWanderMode();
   setupBlinkRandomization();
   // 5) Ambient glitches/evil pulses in the background
-  scheduleAmbientGlitches();
+ scheduleGhostColorGlitches({
+  minDelay: 4500,  // add an extra colour-pop roughly every 4.5–7.5s
+  maxDelay: 7500,
+  strongEvery: 2   // every second pulse uses the strong variant
+});
 });
 
 

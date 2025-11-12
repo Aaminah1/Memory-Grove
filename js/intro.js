@@ -497,74 +497,67 @@ function clampToViewport(list){
 
   tick();
 })();
-// =================== PIED PIPER GHOSTS ===================
-// - Starts with 1 follower
-// - As you progress through #gauntlet (or simply spend time there), more join
-// - New ghosts spawn from LEFT/RIGHT edges and merge into a trailing line
-// - Each ghost asks short questions on a quick cadence
-// Requires: #gauntlet, #ghostSwarm, and #ghost .sprite (SVG template)
+// =================== PIED PIPER — v2 (lower follow + more ghosts + life) ===================
 (() => {
-  if (window.__PIPER__) return; window.__PIPER__ = true;
+  if (window.__PIPER_V2__) return; window.__PIPER_V2__ = true;
 
   const gauntlet = document.getElementById('gauntlet');
   const host = document.getElementById('ghostSwarm') || gauntlet;
-  if (!gauntlet || !host) return;
-
   const spriteInner = document.querySelector('#ghost .sprite')?.innerHTML || '';
-  if (!spriteInner) return;
+  if (!gauntlet || !host || !spriteInner) return;
 
-  // ------------------ DIALS ------------------
+  // ---------- DIALS ----------
   const CFG = {
-    startCount: 1,           // begin with one tail
-    maxCount: 12,            // hard cap
-    joinEveryMs: 1800,       // time-based fallback pacing
-    slotGap: 64,             // distance between ghosts in the line (px)
-    laneJitter: 16,          // slight vertical wobble per ghost so it’s not too rigid
-    baseK: 0.12,             // follow stiffness → higher = snappier
-    maxStep: 22,             // speed clamp
-    idleMs: 900,             // how quickly we consider the user “still”
-    boundsPad: 18,           // keep a bit offscreen edges
-    // speech cadence (short + lively)
-    sayIdle: [950, 1500],
-    sayMove: [1200, 2000]
+    // line behaviour
+    slotGap: 64,         // px between ghosts in the trail
+    laneJitter: 18,      // vertical jitter per ghost so the line isn't ruler-straight
+    baseK: 0.12,         // follow stiffness
+    maxStep: 23,         // speed clamp
+    idleMs: 900,         // when user is considered still
+    boundsPad: 10,       // viewport padding
+
+    // spawn cadence
+    startCount: 1,
+    maxCount: 18,        // ↑ more friends
+    joinEveryMs: 1300,   // faster join pace
+
+    // chatter
+    sayIdle: [900, 1500],
+    sayMove: [1150, 1900],
+
+    // leader bias so the train can come LOWER on screen
+    leadOffsetY: 140,    // push the virtual leader below cursor
+    ctaPullStrength: 120 // extra downward pull when CTA is visible
   };
 
-  // things they say
   const LINES = [
     "Need a shortcut?","Summarize this?","Draft a reply?","Compare?",
     "I can translate that.","Estimate result?","Find assumptions?",
     "Edge cases?","Tone-match this?","Verify with humans?"
   ];
-
-  // tint variety
   const HUES = [0, 18, -12, 36, -24, 60, 90];
 
-  // ------------------ STATE ------------------
-  const flock = []; // {el,bubble,x,y,vx,vy,k,hue,lane,askTimer}
+  // ---------- state ----------
+  const flock = [];  // {el,bubble,x,y,vx,vy,k,lane,blinkDelay,askTimer}
   let inView = false;
-  let desiredCount = CFG.startCount;   // grows with progress
+  let desiredCount = CFG.startCount;
   let lastJoinTs = performance.now();
-
-  // progress in gauntlet (0..1) — also used by your veil code; we reuse the same idea
   let gauntletProg = 0;
 
-  // Observe gauntlet visibility and compute progress
-  new IntersectionObserver(([e]) => { inView = !!e?.isIntersecting; }, {threshold:0.05}).observe(gauntlet);
-
+  // track gauntlet progress (0..1) to grow the pack
   const measureProg = () => {
     const r = gauntlet.getBoundingClientRect();
     const vh = Math.max(1, innerHeight);
-    const p  = Math.max(0, Math.min(1, (vh - r.top) / (r.height + vh)));
-    gauntletProg = p;
-    // grow desired count with progress (slow at first, faster later)
-    const target = CFG.startCount + Math.floor(Math.pow(p, 0.8) * (CFG.maxCount - CFG.startCount));
+    gauntletProg = Math.max(0, Math.min(1, (vh - r.top) / (r.height + vh)));
+    const target = CFG.startCount + Math.floor(Math.pow(gauntletProg, 0.85) * (CFG.maxCount - CFG.startCount));
     desiredCount = Math.max(desiredCount, Math.min(CFG.maxCount, target));
   };
   addEventListener('scroll', measureProg, {passive:true});
   addEventListener('resize', measureProg);
+  new IntersectionObserver(([e])=>{ inView = !!e?.isIntersecting; }, {threshold:0.05}).observe(gauntlet);
   measureProg();
 
-  // cursor/leader target
+  // pointer/leader
   let aimX = innerWidth/2, aimY = innerHeight/2, lastMoveTs = performance.now(), lastScrollY = scrollY;
   const markActive = () => { lastMoveTs = performance.now(); };
   addEventListener('mousemove', e => { aimX=e.clientX; aimY=e.clientY; markActive(); }, {passive:true});
@@ -572,35 +565,60 @@ function clampToViewport(list){
   addEventListener('scroll', () => { if (Math.abs(scrollY-lastScrollY)>1){ lastScrollY=scrollY; markActive(); }}, {passive:true});
   addEventListener('resize', () => { aimX=innerWidth/2; aimY=innerHeight/2; });
 
-  // ------------------ HELPERS ------------------
+  // CTA pull target (optional)
+  const cta = gauntlet.querySelector('.gauntlet-cta');
+
+  // ---------- helpers ----------
   const rand = (a,b)=> a + Math.random()*(b-a);
   const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+
+  function tagEyes(root){
+    // best effort: anything already marked .eye, or ids containing 'eye', else guess two small circles
+    let eyes = root.querySelectorAll('.eye,[id*=eye i]');
+    if (eyes.length === 0){
+      const circles = Array.from(root.querySelectorAll('circle'));
+      circles.sort((a,b)=>(a.r?.baseVal?.value||8)-(b.r?.baseVal?.value||8));
+      eyes = circles.slice(0,2);
+      eyes.forEach(c=>c.classList.add('eye'));
+    }
+    // small random phase so they don't blink together
+    const d = (Math.random()*6).toFixed(2)+'s';
+    root.style.setProperty('--blink', d);
+  }
+
+  function oneShotGlitch(node){
+    node.classList.add('glitch');
+    setTimeout(()=> node.classList.remove('glitch'), 170);
+  }
+  function scheduleGlitch(node){
+    const ms = Math.floor(rand(2200, 5400));
+    setTimeout(()=>{ oneShotGlitch(node); scheduleGlitch(node); }, ms);
+  }
 
   function makeGhost(i){
     const el = document.createElement('div');
     el.className = 'followerGhost';
     el.style.opacity = '0';
     el.innerHTML = `<div class="sprite">${spriteInner}</div><div class="askBubble" role="status" aria-live="polite"></div>`;
-    const hue = HUES[i % HUES.length];
-    el.style.filter = `hue-rotate(${hue}deg) drop-shadow(0 10px 24px rgba(0,0,0,.55))`;
+    el.style.filter = `hue-rotate(${HUES[i % HUES.length]}deg) drop-shadow(0 10px 24px rgba(0,0,0,.55))`;
     host.appendChild(el);
 
-    // spawn from LEFT or RIGHT edge, mid band
+    // spawn from left/right edge mid band
     const side = Math.random()<0.5 ? 'L' : 'R';
     const x = side==='L' ? -0.08*innerWidth : innerWidth * 1.08;
-    const y = rand(innerHeight*0.28, innerHeight*0.72);
+    const y = rand(innerHeight*0.25, innerHeight*0.75);
 
-    // show with a little pop
-    requestAnimationFrame(()=>{ el.classList.add('show'); });
+    requestAnimationFrame(()=> el.classList.add('show'));
+
+    // life details
+    tagEyes(el);
+    scheduleGlitch(el);
 
     return {
       el,
       bubble: el.querySelector('.askBubble'),
-      x, y,
-      vx: 0, vy: 0,
+      x, y, vx:0, vy:0,
       k: CFG.baseK * rand(0.85, 1.15),
-      hue,
-      // each ghost claims a lane offset so the line has subtle variation
       lane: rand(-CFG.laneJitter, CFG.laneJitter),
       askTimer: 0
     };
@@ -609,86 +627,124 @@ function clampToViewport(list){
   function scheduleSpeak(g){
     const idle = (performance.now() - lastMoveTs) > CFG.idleMs;
     const [a,b] = idle ? CFG.sayIdle : CFG.sayMove;
-    const ms = Math.floor(rand(a,b));
     clearTimeout(g.askTimer);
     g.askTimer = setTimeout(() => {
-      const line = LINES[Math.floor(Math.random()*LINES.length)];
-      g.bubble.textContent = line;
+      g.bubble.textContent = LINES[Math.floor(Math.random()*LINES.length)];
       g.bubble.classList.add('show');
       setTimeout(()=> g.bubble.classList.remove('show'), 1300);
       scheduleSpeak(g);
-    }, ms);
+    }, Math.floor(rand(a,b)));
   }
 
-  // ------------------ SPAWNER ------------------
   function trySpawn(){
     const now = performance.now();
     if (!inView) return;
     if (flock.length >= desiredCount) return;
     if (now - lastJoinTs < CFG.joinEveryMs) return;
-
     const g = makeGhost(flock.length);
     flock.push(g);
     lastJoinTs = now;
-    // first line after entrance
     setTimeout(()=> scheduleSpeak(g), 400);
   }
 
-  // ------------------ LOOP ------------------
+  // Perched (static) bottom/side ghosts with chatter
+  (function makePerched(){
+    const specs = [
+      { x: 10, y: 90, s:0.62, hue:-10, op:0.9, side:'L' },
+      { x: 24, y: 92, s:0.58, hue: 18, op:0.86, side:'L' },
+      { x: 50, y: 91, s:0.64, hue:  0, op:0.88, side:'C' },
+      { x: 76, y: 92, s:0.60, hue: 32, op:0.88, side:'R' },
+      { x: 90, y: 90, s:0.66, hue:-24, op:0.92, side:'R' },
+    ];
+    const POOLS = {
+      L:["Draft a reply?","Clean up text?","Auto-complete this?","Outline it?"],
+      C:["I can explain.","Compare?","Estimate result?","Why does this fail?"],
+      R:["I can translate that.","Find a source?","Check references?","Tone-match this?"]
+    };
+    specs.forEach((sp,i)=>{
+      const el = document.createElement('div');
+      el.className = 'perchGhost';
+      el.style.left = `${sp.x}vw`;
+      el.style.top  = `${sp.y}vh`;
+      el.style.setProperty('--s', sp.s);
+      el.style.filter = `hue-rotate(${sp.hue}deg) drop-shadow(0 10px 24px rgba(0,0,0,.55))`;
+      el.innerHTML = `<div class="sprite">${spriteInner}</div><div class="askBubble"></div>`;
+      host.appendChild(el);
+      tagEyes(el);
+      scheduleGlitch(el);
+      requestAnimationFrame(()=>{
+        el.style.transition = 'opacity 600ms ease, transform 420ms ease';
+        setTimeout(()=> el.style.opacity = sp.op, 140 + i*160);
+      });
+      // talk loop
+      const pool = POOLS[sp.side] || POOLS.C;
+      const bubble = el.querySelector('.askBubble');
+      (function talk(){
+        bubble.textContent = pool[Math.floor(Math.random()*pool.length)];
+        bubble.classList.add('show');
+        setTimeout(()=> bubble.classList.remove('show'), 1300);
+        setTimeout(talk, Math.floor(rand(1100, 2200)));
+      })();
+    });
+  })();
+
+  // ---------- loop ----------
   function tick(){
     trySpawn();
     measureProg();
 
     const now = performance.now();
-    const dtStill = now - lastMoveTs;
-    const idle = dtStill > CFG.idleMs;
+    const idle = (now - lastMoveTs) > CFG.idleMs;
 
-    // direction of motion (to place slots behind)
-    // approximate by easing toward aim
-    // If idle, gently relax the leader toward center
-    if (idle){
-      aimX += (innerWidth/2  - aimX) * 0.02;
-      aimY += (innerHeight/2 - aimY) * 0.02;
+    // compute a leader point that’s biased LOWER so the pack comes down the page
+    let leadX = aimX;
+    let leadY = aimY + CFG.leadOffsetY;
+
+    // extra downward pull near CTA so they keep following past it
+    if (cta){
+      const r = cta.getBoundingClientRect();
+      const vh = innerHeight;
+      const nearCTA = r.top < vh && r.top > vh*0.25; // CTA within view
+      if (nearCTA) leadY += CFG.ctaPullStrength;
     }
 
-    // compute heading from last ghost (or from a small history)
-    // simpler: pull a pseudo-heading from recent cursor delta
-    // we’ll keep a small low-pass of aim movement
-    tick._hx = (tick._hx ?? aimX);
-    tick._hy = (tick._hy ?? aimY);
-    const f = 0.25; // smoothing
-    const hx = tick._hx = tick._hx*(1-f) + aimX*f;
-    const hy = tick._hy = tick._hy*(1-f) + aimY*f;
+    // mild relaxation toward center when idle
+    if (idle){
+      leadX += (innerWidth/2  - leadX) * 0.08;
+      leadY += (innerHeight*0.68 - leadY) * 0.08; // bias lower while idle
+    }
 
-    // heading vector (pointing where the user is)
-    let dx = aimX - hx, dy = aimY - hy;
-    let len = Math.hypot(dx,dy) || 1;
-    dx /= len; dy /= len;
+    // heading vector from a smoothed history so slots trail nicely
+    tick._hx = (tick._hx ?? leadX);
+    tick._hy = (tick._hy ?? leadY);
+    const f = 0.25;
+    const hx = tick._hx = tick._hx*(1-f) + leadX*f;
+    const hy = tick._hy = tick._hy*(1-f) + leadY*f;
 
-    // slot positions for each ghost (behind the leader), with small lane jitter
-    // slot i is (i+1) gaps behind
+    let dx = leadX - hx, dy = leadY - hy;
+    let len = Math.hypot(dx,dy) || 1; dx/=len; dy/=len;
+
+    // update ghosts
     for (let i=0;i<flock.length;i++){
       const g = flock[i];
-      const slotsBack = (i+1);
-      const tx = aimX - dx * CFG.slotGap * slotsBack;
-      const ty = aimY - dy * CFG.slotGap * slotsBack + g.lane;
+      g.el.classList.toggle('idle', idle);
 
-      // steer
+      // desired slot position behind leader
+      const back = (i+1)*CFG.slotGap;
+      const tx = leadX - dx * back;
+      const ty = leadY - dy * back + g.lane;
+
+      // steer + integrate
       const ax = (tx - g.x) * g.k;
       const ay = (ty - g.y) * g.k;
       g.vx = (g.vx + ax);
       g.vy = (g.vy + ay);
-
-      // clamp speed
       const sp = Math.hypot(g.vx,g.vy);
-      if (sp > CFG.maxStep){
-        const s = CFG.maxStep / (sp||1); g.vx*=s; g.vy*=s;
-      }
-
+      if (sp > CFG.maxStep){ const s = CFG.maxStep/(sp||1); g.vx*=s; g.vy*=s; }
       g.x += g.vx; g.y += g.vy;
       g.vx *= 0.86; g.vy *= 0.86;
 
-      // keep inside viewport with padding
+      // keep inside viewport a tiny bit
       const L = CFG.boundsPad, R = innerWidth - CFG.boundsPad;
       const T = CFG.boundsPad, B = innerHeight - CFG.boundsPad;
       if (g.x < L){ g.x = L; g.vx = Math.abs(g.vx)*0.4; }
@@ -700,6 +756,217 @@ function clampToViewport(list){
       g.el.style.left = `${g.x}px`;
       g.el.style.top  = `${g.y}px`;
     }
+
+    requestAnimationFrame(tick);
+  }
+  tick();
+})();
+// =================== OVERWHELM UPGRADE ===================
+(() => {
+  const gauntlet = document.getElementById('gauntlet');
+  const host = document.getElementById('ghostSwarm') || gauntlet;
+  const spriteInner = document.querySelector('#ghost .sprite')?.innerHTML || '';
+  if (!gauntlet || !host || !spriteInner) return;
+
+  // --- Intensity controller (0 → 1.35) based on time inside + scroll progress ---
+  let enterTs = performance.now();
+  let prog = 0; // gauntlet progress (0..1)
+  function updateProg(){
+    const r = gauntlet.getBoundingClientRect();
+    const vh = innerHeight;
+    prog = Math.max(0, Math.min(1, (vh - r.top) / (r.height + vh)));
+  }
+  addEventListener('scroll', updateProg, {passive:true});
+  addEventListener('resize', updateProg);
+  updateProg();
+
+  function intensity(){
+    const t = (performance.now() - enterTs) / 1000;         // seconds in section
+    const timeCurve = Math.min(1, t/18);                    // saturate by ~18s
+    const base = Math.max(prog, timeCurve);
+    return Math.min(1.35, Math.pow(base, 0.85) * 1.35);     // 0 → 1.35
+  }
+
+  // --- Enlarge line pool (noise) ---
+  const BIG_LINES = [
+    "Need a shortcut?","Summarize this?","Draft a reply?","Compare?","I can translate that.",
+    "Estimate result?","Find assumptions?","Edge cases?","Tone-match this?","Verify with humans?",
+    "Rewrite for clarity?","Outline it?","Turn into bullet points?","Extract key points?",
+    "Check references?","Search that?","What's missing?","Why did it fail?","Show steps?",
+    "Make it shorter?","Make it longer?","Refactor text?","Add citations?","Translate & keep style?",
+    "Prioritise tasks?","Generate options?","Evaluate this?","Classify that?","Detect bias?",
+    "Fix grammar?","Write an email?","Draft a reply?","Explain like I'm 5?","Convert format?",
+    "Make a table?","Compare sources?","What if…?","Sanity check?","Find contradictions?"
+  ];
+
+  // --- Wire into your Pied-Piper v2 (if present) to ramp its dials ---
+  // Looks for window.__PIPER_V2__ globals (created by your v2 block).
+  // We can’t mutate private CFG directly, so we add a soft “tweak” loop:
+  (function rampFollowers(){
+    const raf = () => {
+      const k = intensity();                   // 0..1.35
+      // Expose some CSS vars the v2 code will pick up visually
+      document.body.style.setProperty('--overwhelm', k.toFixed(2));
+
+      // Try to push more ghosts by simulating progress (v2 reads gauntlet prog & time)
+      // Also speed up chatter by shortening data-attributes if present
+      // (we fall back gracefully if not found).
+      const nodes = document.querySelectorAll('.followerGhost .askBubble');
+      nodes.forEach(n=>{
+        n.style.transitionDuration = (0.25 - Math.min(0.12, k*0.10)) + 's';
+      });
+
+      requestAnimationFrame(raf);
+    };
+    raf();
+  })();
+
+  // =================== “Drifters” — moving crowd in lower band ===================
+  const DRIFT = {
+    countMin: 5,
+    countMax: 26,              // grows with intensity
+    bandTopVH: 58,             // lower band start
+    bandBotVH: 96,             // lower band end
+    speedMin: 0.18,
+    speedMax: 0.42,
+    surgeChance: 0.08,         // chance to surge toward user for ~0.8s
+    sayBase: [1000, 2100],     // base cadence; gets faster with intensity
+  };
+
+  const drifters = []; // {el,x,y,vx,vy,tx,ty,until, bubble, pool}
+  const POOLS = {
+    L:["Draft a reply?","Clean up text?","Auto-complete this?","Outline it?","Make a table?"],
+    C:["I can explain.","Compare?","Estimate result?","Why did it fail?","Show steps?","What if…?"],
+    R:["I can translate that.","Find a source?","Check references?","Tone-match this?","Detect bias?"]
+  };
+
+  function bandY(){ return DRIFT.bandTopVH/100 * innerHeight + Math.random()*((DRIFT.bandBotVH-DRIFT.bandTopVH)/100 * innerHeight); }
+  function sideX(){
+    const side = Math.random()<0.5 ? 'L' : 'R';
+    return side==='L' ? innerWidth*0.04 + Math.random()*innerWidth*0.22
+                      : innerWidth*0.74 + Math.random()*innerWidth*0.22;
+  }
+
+  function makeDrifter(i){
+    const el = document.createElement('div');
+    el.className = 'drifterGhost';
+    el.style.setProperty('--s', (0.56 + Math.random()*0.16).toFixed(2));
+    el.innerHTML = `<div class="sprite">${spriteInner}</div><div class="askBubble"></div>`;
+    el.style.left = '50%'; el.style.top = '50%'; el.style.opacity = '0';
+    host.appendChild(el);
+
+    // random hue tint
+    const hues = [0,12,-10,24,-22,40,64];
+    el.style.filter = `hue-rotate(${hues[i%hues.length]}deg) drop-shadow(0 10px 24px rgba(0,0,0,.55))`;
+
+    // fade in
+    requestAnimationFrame(()=>{
+      el.style.transition = 'opacity 600ms ease';
+      setTimeout(()=> el.style.opacity = '0.9', 120 + i*60);
+    });
+
+    // pick a pool by side band (roughly)
+    const side = (parseFloat(el.style.left)||50) < 50 ? 'L' : 'R';
+    const pool = POOLS[side] || POOLS.C;
+
+    // eyes + random blink phase (reuse from v2 if you have a helper)
+    const eyes = el.querySelectorAll('.eye');
+    if (eyes.length===0){
+      // best-effort tagging
+      el.querySelectorAll('circle').forEach((c,j)=> j<2 && c.classList.add('eye'));
+    }
+    el.style.setProperty('--blink', (Math.random()*6).toFixed(2)+'s');
+
+    const bubble = el.querySelector('.askBubble');
+    bubble.style.transform = `translate(calc(-50% + ${Math.floor(Math.random()*12-6)}px), 4px)`;
+
+    const o = {
+      el, bubble, pool,
+      x: sideX(), y: bandY(),
+      vx: (Math.random()<0.5?-1:1) * (DRIFT.speedMin + Math.random()*(DRIFT.speedMax-DRIFT.speedMin)),
+      vy: (Math.random()<0.5?-1:1) * (DRIFT.speedMin + Math.random()*(DRIFT.speedMax-DRIFT.speedMin)),
+      until: 0
+    };
+    scheduleSay(o); scheduleGlitch(o.el);
+    drifters.push(o);
+  }
+
+  function scheduleSay(o){
+    const k = intensity(); // 0..1.35
+    const fast = 1 - Math.min(0.55, k*0.45); // shrink interval with intensity
+    const [a,b] = DRIFT.sayBase;
+    const ms = Math.floor((a + Math.random()*(b-a)) * fast);
+    setTimeout(()=>{
+      o.bubble.textContent = BIG_LINES[Math.floor(Math.random()*BIG_LINES.length)];
+      o.bubble.classList.add('show');
+      setTimeout(()=> o.bubble.classList.remove('show'), 1300);
+      scheduleSay(o);
+    }, ms);
+  }
+
+  function scheduleGlitch(node){
+    const ms = Math.floor(1800 + Math.random()*3600);
+    setTimeout(()=>{ node.classList.add('glitch'); setTimeout(()=> node.classList.remove('glitch'), 170); scheduleGlitch(node); }, ms);
+  }
+
+  function wantCount(){
+    const k = intensity();
+    return Math.floor(DRIFT.countMin + (DRIFT.countMax-DRIFT.countMin) * Math.min(1, k));
+  }
+
+  function tick(){
+    // ensure population matches intensity
+    const target = wantCount();
+    while (drifters.length < target) makeDrifter(drifters.length);
+    while (drifters.length > target) {
+      const g = drifters.pop();
+      g.el.remove();
+    }
+
+    // move
+    const now = performance.now();
+    for (const g of drifters){
+      // occasional surge toward cursor to feel “closing in”
+      if (Math.random() < DRIFT.surgeChance * 0.016 * intensity()){
+        g.until = now + 800 + Math.random()*500;
+      }
+      const toward = now < g.until;
+
+      let ax=0, ay=0;
+      if (toward){
+        const tx = (window.__aimX__ ?? innerWidth/2);
+        const ty = (window.__aimY__ ?? innerHeight/2) + 120; // bias lower
+        const dx = tx - g.x, dy = ty - g.y;
+        const d = Math.hypot(dx,dy) || 1;
+        ax = (dx/d) * 0.55; ay = (dy/d) * 0.55;
+      } else {
+        // gentle noise
+        ax = (Math.random()-0.5) * 0.12;
+        ay = (Math.random()-0.5) * 0.12;
+      }
+
+      g.vx = (g.vx + ax) * 0.98;
+      g.vy = (g.vy + ay) * 0.98;
+
+      g.x += g.vx; g.y += g.vy;
+
+      // bounce softly within the lower band
+      const L = 8, R = innerWidth - 8;
+      const T = innerHeight * (DRIFT.bandTopVH/100);
+      const B = innerHeight * (DRIFT.bandBotVH/100);
+      if (g.x < L){ g.x=L; g.vx = Math.abs(g.vx); }
+      if (g.x > R){ g.x=R; g.vx = -Math.abs(g.vx); }
+      if (g.y < T){ g.y=T; g.vy = Math.abs(g.vy); }
+      if (g.y > B){ g.y=B; g.vy = -Math.abs(g.vy); }
+
+      g.el.style.left = `${g.x}px`;
+      g.el.style.top  = `${g.y}px`;
+      g.el.style.opacity = '0.9';
+    }
+
+    // expose cursor for surges (shared)
+    window.__aimX__ = (window.__aimX__ ?? innerWidth/2);
+    window.__aimY__ = (window.__aimY__ ?? innerHeight/2);
 
     requestAnimationFrame(tick);
   }

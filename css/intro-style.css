@@ -273,3 +273,46 @@ body.in-gauntlet::after{ opacity: .15; }
 .followerGhost { will-change: transform, opacity; }
 .followerGhost .askBubble { transition: opacity .18s ease, transform .18s ease; }
 .followerGhost .askBubble.show { opacity: 1; transform: translate(-50%,0); }
+/* --- gentle idle bob on follower & perched ghosts --- */
+.followerGhost.idle .sprite,
+.perchGhost .sprite { animation: ghostBob 3.8s ease-in-out infinite; }
+@keyframes ghostBob { 0%,100% { transform: translateY(-2px) } 50% { transform: translateY(2px) } }
+
+/* --- eye blink (target .eye elements inside the SVG) --- */
+.followerGhost .eye, .perchGhost .eye {
+  transform-origin: center;
+  animation: blink 6.5s infinite;
+  animation-delay: var(--blink, 0s);
+}
+@keyframes blink { 0%,97%,100% { transform: scaleY(1) } 98% { transform: scaleY(0.1) } }
+
+/* --- tiny one-shot glitch nudge --- */
+.followerGhost.glitch .sprite, .perchGhost.glitch .sprite {
+  animation: ghostGlitch 0.16s steps(2, end) 1;
+}
+@keyframes ghostGlitch {
+  0% { transform: translate(0,0); filter: hue-rotate(0deg); }
+  100% { transform: translate(-2px,1px); filter: hue-rotate(16deg); }
+}
+
+/* Perched ghosts near bottom/sides */
+#gauntlet .perchGhost{
+  position:absolute; inset:auto;
+  pointer-events:none; z-index:2; opacity:0;
+  transform: translate(-50%,-50%) scale(var(--s,0.70));
+  filter: drop-shadow(0 10px 24px rgba(0,0,0,.55));
+  will-change: transform, opacity;
+}/* DRIFTERS (ex-perched) — subtle float + occasional nudge */
+.drifterGhost {
+  position:absolute; inset:auto; z-index:2; opacity:0;
+  transform: translate(-50%,-50%) scale(var(--s,0.70));
+  filter: drop-shadow(0 10px 24px rgba(0,0,0,.55));
+  will-change: transform, opacity;
+}
+.drifterGhost .sprite { animation: ghostBob 4.2s ease-in-out infinite; }
+
+/* micro offsets to stop bubble stacking perfectly */
+.drifterGhost .askBubble, .followerGhost .askBubble { will-change: transform, opacity; }
+
+/* “crowd” look: bubbles can overlap a bit without being unreadable */
+.askBubble { mix-blend-mode: normal; }
