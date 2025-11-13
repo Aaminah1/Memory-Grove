@@ -10,7 +10,7 @@ body {
   display:flex; justify-content:space-between; align-items:center;
   padding:1rem; background:#16171d; border-bottom:1px solid #2a2b33;
 }
-.site-header h1 { font-size:1.2rem; }
+.site-header h1 { font-size:1.2rem;  text-transform:uppercase;}
 /* make the brand look like plain text but clickable */
 .site-header .brand-link {
   color: inherit;
