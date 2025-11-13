@@ -38,16 +38,15 @@
 </header>
 
   <main>
-    <!-- Stepper -->
-    <div class="stepper" aria-hidden="true">
-      <span class="step step-ask active">1. Ask</span>
-      <span class="sep">›</span>
-      <span class="step step-read">2. Read</span>
-      <span class="sep">›</span>
-      <span class="step step-classify">3. Classify</span>
-      <span class="sep">›</span>
-      <span class="step step-plant">4. Plant</span>
-    </div>
+<div class="stepper" aria-label="Process steps">
+  <span class="step step-ask active" data-step="1">Send a question</span>
+  <span class="sep">⟶</span>
+  <span class="step step-read" data-step="2">Witness the ghost’s memory</span>
+  <span class="sep">⟶</span>
+  <span class="step step-classify" data-step="3">Judge its truth</span>
+  <span class="sep">⟶</span>
+  <span class="step step-plant" data-step="4">Plant your seed</span>
+</div>
 
     <!-- Nudge -->
     <div id="groveNudge" class="nudge" hidden>
@@ -58,6 +57,7 @@
     <!-- ASK PANEL -->
     <section id="ghostSection" class="panel">
       <h2>Encounter the Ghost</h2>
+      <p class="metaphor-text metaphor-text--ghost"> What you offer becomes a shape it tries to recognise. </p>
 
       <form id="askForm" class="ask-row" aria-describedby="askHelp">
         <textarea id="question" placeholder="Ask a culturally grounded question…" required minlength="3"></textarea>
@@ -135,22 +135,28 @@
     </section>
 
     <!-- GROVE PANEL -->
-    <section id="groveSection" class="panel" hidden>
+   <section id="groveSection" class="panel" hidden>
+  <header class="grove-header">
+    <div class="grove-title-block">
       <h2>Your Grove</h2>
+      <p class="metaphor-text metaphor-text--grove">
+        Each seed marks resonance, correction, or refusal. Over time, these small choices
+        become a living memory the ghost cannot hold.
+      </p>
+    </div>
 
-      <div class="grove-toolbar">
-        <button class="filter-btn" data-filter="all" aria-pressed="true">All</button>
-        <button class="filter-btn" data-filter="green" aria-pressed="false">Resonates</button>
-        <button class="filter-btn" data-filter="yellow" aria-pressed="false">Partially right</button>
-        <button class="filter-btn" data-filter="red" aria-pressed="false">Wrong / harmful</button>
+    <div class="grove-tools">
+      <button id="exportBtn" type="button">Export</button>
+      <button id="importBtn" type="button">Import</button>
+      <input id="importFile" type="file" accept="application/json" hidden />
+    </div>
+  </header>
 
-        <div class="spacer"></div>
-        <button id="exportBtn" type="button">Export</button>
-        <button id="importBtn" type="button">Import</button>
-        <input id="importFile" type="file" accept="application/json" hidden />
-      </div>
+
 
       <div class="grove-frame">
+        <div class="grove-fog"></div>
+        <div class="grove-dust"></div>
         <svg id="groveCanvas" viewBox="0 0 1200 700" preserveAspectRatio="xMidYMid meet">
           <defs>
             <linearGradient id="graveGrad" x1="0" y1="0" x2="0" y2="1">
@@ -168,10 +174,6 @@
 
       <p class="hint">Tip: click a stone to open it. Double-click (or press “n”) to add notes for that label.</p>
 
-      <!-- Optional simple list (if you also want it visible) -->
-      <h3 style="margin-top:1rem">Seeds list</h3>
-      <p><strong id="seedCount">0 seeds</strong></p>
-      <ul id="seedList" class="seeds"></ul>
     </section>
   </main>
 

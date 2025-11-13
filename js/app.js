@@ -252,15 +252,34 @@ const gapY = rows > 1
   : 0;
 const ROW_CUSHION = 32;    
 
-  let i = 0;
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      if (i >= N) break;
-      const x = Math.round(leftPad + c * (stoneW + gapX));
-      const y = Math.round(topPad  + r * (stoneH + gapY));
-      drawStone(layer, x, y, stoneW, stoneH, seeds[i++]);
-    }
+ let i = 0;
+for (let r = 0; r < rows; r++) {
+  for (let c = 0; c < cols; c++) {
+    if (i >= N) break;
+
+    // base grid position
+    const baseX = leftPad + c * (stoneW + gapX);
+    const baseY = topPad  + r * (stoneH + gapY);
+
+    // --- cemetery-style variation ---
+
+    // stagger every second row so graves are offset, not in columns
+    const staggerX = (r % 2 === 0) ? 0 : stoneW * 0.4;
+
+    // gentle curve in the row so it's not a flat line
+    const waveY = Math.sin(c * 0.7 + r * 0.5) * 18;
+
+    // tiny random wobble so it doesn't look computer-perfect
+    const jitterX = (Math.random() - 0.5) * 14; // ±7px
+    const jitterY = (Math.random() - 0.5) * 8;  // ±4px
+
+    const x = Math.round(baseX + staggerX + jitterX);
+    const y = Math.round(baseY + waveY   + jitterY);
+
+    drawStone(layer, x, y, stoneW, stoneH, seeds[i++]);
   }
+}
+
 }
 function addTimelineDots(group, seed, x, y, w, h) {
   const ns = 'http://www.w3.org/2000/svg';
@@ -439,29 +458,93 @@ div.style.fontSize = Math.max(7, Math.round(fs)) + 'px';
   parent.appendChild(g);
 }
 
+// return 0..4 based on how much this class has been engaged with
+function growthLevelForClass(seed, cls) {
+  let score = 0;
 
+  // history: planted / class-change / note events
+  if (Array.isArray(seed.history)) {
+    for (const ev of seed.history) {
+      let evCls = ev.class || ev.to || ev.newClass || null;
+      if (!evCls && ev.type === 'planted') {
+        evCls = seed.class || 'yellow';
+      }
+      if (evCls === cls) {
+        // class set/change counts a bit more
+        if (ev.type === 'class-change' || ev.type === 'class-set') score += 2;
+        else if (ev.type === 'note') score += 1;
+        else score += 0.5;
+      }
+    }
+  }
+
+  // notes: messages in the thread for this class
+  const thread = getThreadForClass(seed, cls, false);
+  if (thread && Array.isArray(thread.messages)) {
+    score += thread.messages.length;
+  }
+
+  // clamp and map to 0..4
+  const maxScore = 10; // after ~10 “touches” it’s at max growth
+  const ratio = Math.max(0, Math.min(score, maxScore)) / maxScore;
+  return Math.round(ratio * 4); // 0,1,2,3,4
+}
+
+// Map growth level (0..4) → sprite stage (1..3)
+function spriteStageForClass(seed, cls) {
+  const lvl = growthLevelForClass(seed, cls); // 0..4
+
+  // 0    -> stage 1  (tiny)
+  // 1–2  -> stage 2  (medium)
+  // 3–4  -> stage 3  (full)
+  if (lvl <= 0) return 1;
+  if (lvl <= 2) return 2;
+  return 3;
+}
+
+ 
 /* overlay now receives seed so it can open notes */
 function addOverlay(group, seed, cls, x, y, w, h) {
   const ns = 'http://www.w3.org/2000/svg';
   const t = OVERLAY[cls];
   if (!t) return;
 
-  const ow = w * t.w;
-  const oh = h * t.h;
+  // base size from config
+  let ow = w * t.w;
+  let oh = h * t.h;
+
+  // how “grown” is this class on this stone? 0..4
+  const level = growthLevelForClass(seed, cls);
+  const scale = 1 + level * 0.18;   // 1.00 → 1.72 max
+
+  ow *= scale;
+  oh *= scale;
+
   let ox = x, oy = y;
 
-  if (t.ax === 'center') ox = x + (w - ow) / 2;
-  else if (t.ax === 'right') ox = x + w - ow * 0.25;
-  else if (t.ax === 'left')  ox = x - ow * 0.25;
+  if (t.ax === 'center')      ox = x + (w - ow) / 2;
+  else if (t.ax === 'right')  ox = x + w - ow * 0.25;
+  else if (t.ax === 'left')   ox = x - ow * 0.25;
 
   if (t.ay === 'top')         oy = y - oh * 0.60;
   else if (t.ay === 'middle') oy = y + (h - oh) / 2;
   else if (t.ay === 'bottom') oy = y + h - oh * 0.15;
 
-  ox += t.dx; oy += t.dy;
+  ox += t.dx;
+  oy += t.dy;
 
   const piece = document.createElementNS(ns, 'image');
-  piece.setAttribute('href', t.src);
+
+  // default sprite from OVERLAY
+  let src = t.src;
+
+  // For green, yellow, red: pick sprite based on growth stage
+  if (cls === 'green' || cls === 'yellow' || cls === 'red') {
+    const stage = spriteStageForClass(seed, cls);      // 1, 2, or 3
+    src = `images/${cls}${stage}.png?v=3`;             // <- cache-buster
+  }
+
+  piece.setAttribute('href', src);
   piece.setAttribute('x', ox);
   piece.setAttribute('y', oy);
   piece.setAttribute('width',  ow);
@@ -469,15 +552,18 @@ function addOverlay(group, seed, cls, x, y, w, h) {
   piece.setAttribute('preserveAspectRatio', 'xMidYMid meet');
   piece.style.cursor = 'pointer';
 
-  //clicking overlay opens notes for that class (even if no thread yet)
+  // clicking overlay opens notes for that class (even if no thread yet)
   piece.addEventListener('click', (e) => {
     e.stopPropagation();
-    const fresh = loadSeeds().map(normalizeSeed).find(s => String(s.id) === String(group.__seedId)) || seed;
+    const fresh = loadSeeds().map(normalizeSeed)
+      .find(s => String(s.id) === String(group.__seedId)) || seed;
     openNotesModal(fresh, cls);
   });
 
   group.appendChild(piece);
 }
+
+
 const NOTE_ICON = 'images/note.png'; // your image
 
 function addNoteBadge(group, seed, cls, x, y, w, h) {
@@ -959,20 +1045,28 @@ askForm?.addEventListener('submit', async (e) => {
     document.querySelectorAll('.classify button[data-class]').forEach(b => b.classList.remove('active'));
 
     try {
-      const text = await getGhostMemory(q);
-      if (tombText) tombText.textContent = text || 'The ghost is silent…';
-      if (skeleton) skeleton.hidden = true;
-      revealClassifyAfterText(tombText, classifyBox);
-    } catch (err) {
-      if (skeleton) skeleton.hidden = true;
-      const msg = mapErrorMessage(err?.message || String(err));
-      if (errorBox) { errorBox.textContent = msg; errorBox.hidden = false; }
-      if (tombText) tombText.textContent = 'The ghost is silent for now…';
-      if (classifyBox) classifyBox.hidden = true;
-      showToast('Could not get a reply.');
-    } finally {
-      if (askBtn){ askBtn.disabled = false; askBtn.textContent = 'Ask'; }
-    }
+  const text = await getGhostMemory(q);
+
+  if (tombText) tombText.textContent = text || 'The ghost is silent…';
+  if (skeleton) skeleton.hidden = true;
+
+  // 🔹 tell the ghost the answer arrived so it can react
+  if (window.ghostOnAnswer && text) {
+    window.ghostOnAnswer({ length: text.length });
+  }
+
+  revealClassifyAfterText(tombText, classifyBox);
+} catch (err) {
+  if (skeleton) skeleton.hidden = true;
+  const msg = mapErrorMessage(err?.message || String(err));
+  if (errorBox) { errorBox.textContent = msg; errorBox.hidden = false; }
+  if (tombText) tombText.textContent = 'The ghost is silent for now…';
+  if (classifyBox) classifyBox.hidden = true;
+  showToast('Could not get a reply.');
+} finally {
+  if (askBtn){ askBtn.disabled = false; askBtn.textContent = 'Ask'; }
+}
+
   });
 
   // Plant seed (creates initial thread if a note is typed)
