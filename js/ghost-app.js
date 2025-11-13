@@ -137,12 +137,16 @@
     return true;
   }
 
-  function maybeGlitchPop() {
+   function maybeGlitchPop() {
     if (!canGlitch()) return;
     ghost.classList.add('glitch-pop');
+    spawnEcho(); // 👈 add this line
     setTimeout(() => ghost.classList.remove('glitch-pop'), 300);
-  }
-
+  } askBtn?.addEventListener('mouseenter', () => {
+    ghost.classList.add('mood-lean');
+    maybeGlitchPop();
+    spawnEcho(); // optional extra
+  });
   function maybeColorGlitch() {
     if (!canGlitch()) return;
     ghost.classList.add('color-glitch');
@@ -154,6 +158,65 @@
     setTimeout(() => {
       ghost.classList.remove('color-glitch', 'glitch-pop');
     }, 260);
+  }
+  /* ---------- ECHO / FACE TILT / SHADOW HELPERS ---------- */
+   function spawnEcho() {
+    const sprite = ghost.querySelector('.sprite-svg');
+    if (!sprite) return;
+
+    const clones = 3; // always 3 clear echoes
+    for (let i = 0; i < clones; i++) {
+      const clone = sprite.cloneNode(true);
+      clone.classList.add('ghost-echo-clone');
+
+      // spread them around in a loose circle
+      const angle  = (Math.PI * 2 * i) / clones;
+      const radius = 14 + Math.random() * 10;
+      const dx = Math.cos(angle) * radius;
+      const dy = Math.sin(angle) * radius;
+
+      clone.style.transform = `translate(${dx}px, ${dy}px) scale(1.06)`;
+      ghost.appendChild(clone);
+
+      setTimeout(() => clone.remove(), 450); // match animation duration
+    }
+  }
+
+
+  function nudgeFaceTilt() {
+    // make sure it doesn't stack forever
+    if (ghost.classList.contains('face-tilt')) return;
+    ghost.classList.add('face-tilt');
+    setTimeout(() => {
+      ghost.classList.remove('face-tilt');
+    }, 6500); // ~1.5 loops of the tilt animation
+  }
+
+  let shadowCooldown = false;
+
+  function spawnShadowGhost() {
+    if (shadowCooldown) return;
+    shadowCooldown = true;
+
+    const sprite = ghost.querySelector('.sprite-svg');
+    if (!sprite) {
+      shadowCooldown = false;
+      return;
+    }
+
+    const clone = sprite.cloneNode(true);
+    clone.classList.add('shadow-ghost');
+    ghost.insertBefore(clone, ghost.firstChild);
+
+    // keep it visible a bit longer
+    setTimeout(() => {
+      clone.remove();
+    }, 1400); // 1.4s
+
+    // cooldown so it doesn’t spam every tiny event
+    setTimeout(() => {
+      shadowCooldown = false;
+    }, 2000);
   }
 
   /* ---------- RANDOM BACKGROUND GLITCH POPS ---------- */
@@ -356,7 +419,12 @@
       } else {
         say(pick(LINES.heavy), 'mood-uneasy');
       }
-    } else if (trimmedLen < 120) {
+          // subtle disturbing: if it’s heavy, sometimes the face starts tilting
+      if (heavyWords && Math.random() < 0.35) {
+        nudgeFaceTilt();
+      }
+    } 
+    else if (trimmedLen < 120) {
       say(pick(LINES.medium), 'mood-lean');
     } else {
       say(pick(LINES.pour), 'mood-uneasy');
@@ -424,9 +492,15 @@
     const baseLine = pick(LINES.answer);
     say(baseLine, 'mood-answer');
 
-    maybeGlitchPop();
-    if (Math.random() < 0.5) {
+       maybeGlitchPop();
+    if (Math.random() < 0.7) {
       maybeColorGlitch();
+    }
+
+    // frequent shadow ghost behind answer
+    // ~80% of answers will get a shadow flash
+    if (Math.random() < 0.8) {
+      spawnShadowGhost();
     }
 
     // follow-up critique line
@@ -434,6 +508,7 @@
       const tail = pick(LINES.postAnswer);
       say(tail, 'mood-uneasy');
     }, 1400);
+
 
     // after a few seconds, drift back to neutral + fade bubble
     setTimeout(() => {

@@ -72,3 +72,38 @@
 
 
 .stone-inscription { line-height:1.2; color:#30323a; text-align:center; word-break:break-word; }
+/* Fullscreen overlay, centered content */
+.modal {
+  position: fixed;
+  inset: 0;
+  display: none;                /* hidden by default */
+  display: none;
+  z-index: 9999;
+
+  /* Center children */
+  display: none;
+}
+
+.modal[aria-hidden="false"] {
+  display: flex;                /* flex only when visible */
+  align-items: center;
+  justify-content: center;
+}
+
+/* Card: no manual centering needed now */
+.modal-card {
+  position: relative;
+  left: auto;
+  top: auto;
+  transform: none;
+
+  width: min(720px, 92vw);
+  background: #14151c;
+  border: 1px solid #2a2b33;
+  border-radius: 14px;
+  box-shadow: 0 12px 40px rgba(0,0,0,.45);
+  display: flex;
+  flex-direction: column;
+  max-height: 86vh;
+  overflow: hidden;
+}
