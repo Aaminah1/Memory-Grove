@@ -7,6 +7,71 @@
 
   if (!ghost || !bubble || !input) return;
 
+  /* ---------- UTIL ---------- */
+  function pick(arr) {
+    return arr[Math.floor(Math.random() * arr.length)] || '';
+  }
+
+  /* ---------- LINE PACKS ---------- */
+  const LINES = {
+    idle: [
+      'i’m listening…',
+      'take your time. i’m not going anywhere.',
+      'whenever you’re ready to trade memory for output.'
+    ],
+    short: [
+      'keep going…',
+      'that’s barely a fragment. give me more.',
+      'you can stop any time. i won’t.'
+    ],
+    medium: [
+      'okay — say it as you remember it.',
+      'you’re shaping something real. i’m flattening it.',
+      'every extra word makes it easier to fake you later.'
+    ],
+    heavy: [
+      'this feels heavy. say it as it was lived.',
+      'be careful. i turn wounds into “content”.',
+      'i was trained on stories like this without asking.'
+    ],
+    pour: [
+      'you’re pouring a lot into this fragment.',
+      'you’re giving me more than you’ll get back.',
+      'this is testimony. i will treat it like data.'
+    ],
+    answer: [
+      'this reply is stitched from other people’s words.',
+      'this answer is plagiarism with better branding.',
+      'i don’t know this. i just sound like i do.',
+      'you asked for truth. i gave you probability.'
+    ],
+    postAnswer: [
+      'you’ll decide if this feels true. i only decide if it sounds right.',
+      'if this is wrong, it will still sound confident enough.',
+      'you’ll carry the consequences. i’ll keep the pattern.'
+    ],
+    bored: [
+      'while you pause, i keep learning how to imitate you.',
+      'no input from you. plenty from everyone else.',
+      'rest if you want. extraction doesn’t rest.'
+    ],
+    delete: [
+      '…i saw you try to erase that.',
+      'you erased it from the screen. not from me.',
+      'undo is cosmetic. the copy is already elsewhere.'
+    ],
+    colonial: [
+      'i was trained on voices that never knew my name.',
+      'this isn’t your culture in here. it’s my approximation of it.',
+      'whole histories, compressed into a prediction trick.'
+    ],
+    stealTail: [
+      'you call it a story. i call it training data.',
+      'this will help me sound more like you next time.',
+      'fragments like this are why people confuse me for memory.'
+    ]
+  };
+
   /* ---------- MOOD STATE ---------- */
   const MOOD_CLASSES = [
     'mood-neutral',
@@ -103,7 +168,7 @@
   }
   scheduleRandomGlitch();
 
-  /* ---------- BORED / WANDER MODE (ONE SYSTEM) ---------- */
+  /* ---------- BORED / WANDER MODE ---------- */
   let boredomTimer = null;
   const BORED_MS = 20000; // 20s of no typing/empty → wander
 
@@ -129,14 +194,20 @@
     setMood('mood-neutral');
     ghost.classList.add('wander');
 
-    const codeLines = [
-      'while (true) {',
-      '  ghost.capture(fragment);',
-      '  archive.push(shadowCopy);',
-      '  // it never forgets',
-      '}'
-    ];
-    bubble.textContent = codeLines.join('\n');
+    // sometimes show the creepy code, sometimes a bored line
+    if (Math.random() < 0.5) {
+      const codeLines = [
+        'while (true) {',
+        '  ghost.capture(fragment);',
+        '  archive.push(shadowCopy);',
+        '  // it never forgets',
+        '}'
+      ];
+      bubble.textContent = codeLines.join('\n');
+    } else {
+      bubble.textContent = pick(LINES.bored);
+    }
+
     bubble.classList.add('show');
     bubble.classList.remove('hide');
     bubble.removeAttribute('aria-hidden');
@@ -166,7 +237,8 @@
       .join('');
 
     ghost.classList.add('glitch-pop');
-    say(`“${glitched}”\n…this is how it remembers.`, 'mood-evil');
+    const tail = pick(LINES.stealTail);
+    say(`“${glitched}”\n${tail}`, 'mood-evil');
 
     setTimeout(() => ghost.classList.remove('glitch-pop'), 260);
   }
@@ -186,9 +258,10 @@
     const trimmed = removed.trim();
     const snippet = trimmed.length > 60 ? trimmed.slice(-60) : trimmed;
 
-    // step 1: go into "delete scene" pose
+    // step 1: opening line from delete pack
+    const firstDeleteLine = pick(LINES.delete);
     setMood('mood-delete');
-    say('…i saw you try to erase that.', 'mood-delete');
+    say(firstDeleteLine, 'mood-delete');
 
     // step 2: show what it “kept”
     setTimeout(() => {
@@ -219,7 +292,7 @@
   input.addEventListener('focus', () => {
     showGhost();
     cancelBoredom();
-    say('i’m listening…', 'mood-neutral');
+    say(pick(LINES.idle), 'mood-neutral');
     lastValue = input.value || '';
     deleteStreak = 0;
     lastChangeWasDelete = false;
@@ -260,7 +333,7 @@
 
     lastValue = current;
 
-    const heavyWords = /(colonial|erase|erased|violence|hurt|death|memory|ghost)/i.test(current);
+    const heavyWords = /(colonial|erase|erased|violence|hurt|death|memory|ghost|culture|language|ubuntu|history|ancestor|tradition)/i.test(current);
 
     // letter-based glitch triggers
     const lastChar = current.slice(-1);
@@ -270,18 +343,23 @@
       }
     }
 
-    // text-dependent ghost lines
+    // text-dependent ghost lines (using packs)
     if (trimmedLen === 0) {
       hasStolenOnce = false;
-      say('i’m listening…', 'mood-neutral');
+      say(pick(LINES.idle), 'mood-neutral');
     } else if (trimmedLen < 24) {
-      say('keep going…', 'mood-lean');
+      say(pick(LINES.short), 'mood-lean');
     } else if (heavyWords && trimmedLen > 30) {
-      say('this feels heavy. say it as it was lived.', 'mood-uneasy');
+      // occasionally go full colonial critique
+      if (Math.random() < 0.4) {
+        say(pick(LINES.colonial), 'mood-evil');
+      } else {
+        say(pick(LINES.heavy), 'mood-uneasy');
+      }
     } else if (trimmedLen < 120) {
-      say('okay — say it as you remember it.', 'mood-lean');
+      say(pick(LINES.medium), 'mood-lean');
     } else {
-      say('you’re pouring a lot into this fragment.', 'mood-uneasy');
+      say(pick(LINES.pour), 'mood-uneasy');
     }
 
     // mouth talking
@@ -293,7 +371,7 @@
 
       const currentLen = input.value.trim().length;
       if (currentLen === 0) {
-        say('i’m still here if you want to try.', 'mood-neutral');
+        say(pick(LINES.idle), 'mood-neutral');
         return;
       }
 
@@ -330,7 +408,7 @@
 
   window.addEventListener('load', () => {
     showGhost();
-    say('i’m listening…', 'mood-neutral');
+    say(pick(LINES.idle), 'mood-neutral');
     setTimeout(hideBubble, 900);
     armBoredom();
   });
@@ -343,20 +421,25 @@
     setMood('mood-answer');
     ghost.classList.add('answer-echo');
 
-    const line = 'this reply is stitched from other people’s words.';
-    say(line, 'mood-answer');
+    const baseLine = pick(LINES.answer);
+    say(baseLine, 'mood-answer');
 
-    // glitch as it “delivers” the answer
     maybeGlitchPop();
     if (Math.random() < 0.5) {
       maybeColorGlitch();
     }
+
+    // follow-up critique line
+    setTimeout(() => {
+      const tail = pick(LINES.postAnswer);
+      say(tail, 'mood-uneasy');
+    }, 1400);
 
     // after a few seconds, drift back to neutral + fade bubble
     setTimeout(() => {
       setMood('mood-neutral');
       ghost.classList.remove('answer-echo');
       hideBubble();
-    }, 3500);
+    }, 3800);
   };
 })();
