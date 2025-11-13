@@ -484,13 +484,15 @@ button[disabled] { opacity:.6; cursor:not-allowed; }
 /* If you still have halo elements and want them invisible anyway */
 .stone-halo { opacity: 0 !important; }
 /* Inscription text inside each tombstone */
-/* text that sits inside the tombstone */
 .stone-inscription {
-  width:100%; height:100%;
-  display:flex; align-items:center; justify-content:center;
+  width:100%;
+  height:100%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
   text-align:center;
-  line-height:1.2;
-  padding:8px 10px;     /* add extra breathing room */
+  line-height:1.05;      /* was 1.1 */
+  padding:12px 5px;       /* slightly smaller padding */
   color:#1e2026;
   overflow:hidden;
   word-break:break-word;
@@ -498,7 +500,65 @@ button[disabled] { opacity:.6; cursor:not-allowed; }
 
   display:-webkit-box;
   -webkit-box-orient:vertical;
-  -webkit-line-clamp:3;
+  -webkit-line-clamp:4;
+}
+.stone-history {
+  margin-top: 0.75rem;
+  padding-top: 0.55rem;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  font-size: 0.8rem;
+  color: #aab0bb;
+}
+
+.stone-history__title {
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+  color: #d7dde9;
+}
+
+.stone-history__list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.stone-history__list li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: baseline;
+}
+
+.stone-history__pill {
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: #171924;
+}
+
+.stone-history__pill--green {
+  border-color: #3fb950;
+  background: rgba(25, 111, 63, 0.6);
+  color: #e9ffe8;
+}
+
+.stone-history__pill--yellow {
+  border-color: #c9a806;
+  background: rgba(128, 104, 26, 0.6);
+  color: #fff7d1;
+}
+
+.stone-history__pill--red {
+  border-color: #e5534b;
+  background: rgba(129, 41, 41, 0.6);
+  color: #ffe1df;
+}
+
+.stone-history__empty {
+  font-size: 0.78rem;
+  color: #8f95a3;
 }
 
 
@@ -533,8 +593,8 @@ button[disabled] { opacity:.6; cursor:not-allowed; }
 /* Alias mg-bubble to bubble styles */
 .app-ghost .mg-bubble{ 
   position:absolute;
-  left: calc(100% + 12px);
-  top: 12px;
+  left: calc(100% px);
+  top: 280px;
   transform: translateY(0);
   background: linear-gradient(180deg, rgba(16,22,32,.96), rgba(10,14,22,.94));
   border:1px solid rgba(255,255,255,.15);
@@ -560,17 +620,85 @@ button[disabled] { opacity:.6; cursor:not-allowed; }
 .app-ghost .mg-bubble.show{ opacity:1; transform: translateY(-2px); }
 .app-ghost .mg-bubble.hide{ opacity:0; transform: translateY(0); }
 
-/* mobile alias */
+/* ====== Ghost moods + face reactions ====== */
+
+/* ====== Dramatic moods + invasion ====== */
+
+/* base neutral */
+.app-ghost.mood-neutral {
+  transform: translateY(0) translateX(0) scale(1);
+}
+
+/* leans in a LOT when engaged */
+.app-ghost.mood-lean {
+  transform: translateY(-10px) translateX(-24px) scale(1.12);
+}
+
+/* uneasy → slight tilt + narrower eyes */
+.app-ghost.mood-uneasy .sprite-svg {
+  transform: translateY(-4px) rotate(-3deg);
+}
+.app-ghost.mood-uneasy .eye {
+  transform-origin: center;
+  transform: scaleY(0.7) translateY(2px);
+}
+
+/* evil base – darker, closer */
+.app-ghost.mood-evil {
+  transform: translateY(-6px) translateX(-32px) scale(1.18);
+}
+.app-ghost.mood-evil .eye {
+  transform-origin: center;
+  transform: scaleY(0.4) translateY(3px);
+  fill: #05060a;
+}
+.app-ghost.mood-evil .mouth {
+  transform-origin: center;
+  transform-box: fill-box;
+  transform: scaleY(0.6) translateY(2px);
+}
+
+/* invasion state – big and sliding over towards the textarea */
+.app-ghost.invade {
+  transform: translate(-40vw, -12px) scale(1.28);
+  z-index: 40;
+}
+
+/* vanish state – fades away for a moment */
+.app-ghost.vanish {
+  opacity: 0;
+  transform: translate(-20vw, 20px) scale(0.9);
+}
+
+/* smooth transforms so all of the above feel like motion */
+.app-ghost {
+  transition:
+    opacity 320ms ease,
+    transform 520ms cubic-bezier(.19,.9,.18,1.02);
+}
+
+/* mouth “talking” while user types */
+.app-ghost .mouth.speaking {
+  animation: mg-mouth 0.28s alternate infinite;
+}
+@keyframes mg-mouth {
+  0%   { transform: scaleY(0.9) translateY(0); }
+  100% { transform: scaleY(1.3) translateY(1px); }
+}
+
+/* quick glitch pop used in JS (.glitch-pop) */
+.app-ghost.glitch-pop .sprite-svg {
+  animation: mg-ghostGlitch 0.16s steps(2, end) 1;
+}
+@keyframes mg-ghostGlitch {
+  0%   { transform: translate(0,0); filter: none; }
+  50%  { transform: translate(-3px,2px); filter: hue-rotate(14deg); }
+  100% { transform: translate(2px,-2px); filter: hue-rotate(-10deg); }
+}
+
+/* optional: soften invasion on very small screens */
 @media (max-width: 900px){
-  .app-ghost .mg-bubble{
-    left:50%; top: calc(100% + 8px); transform: translate(-50%, 0);
-    max-width: min(92vw, 560px);
-  }
-  .app-ghost .mg-bubble::after{
-    left:50%; top:-8px; transform: translateX(-50%);
-    border-right:none;
-    border-left:8px solid transparent;
-    border-right:8px solid transparent;
-    border-bottom:8px solid rgba(16,22,32,.96);
+  .app-ghost.invade {
+    transform: translate(-6vw, -6px) scale(1.1);
   }
 }

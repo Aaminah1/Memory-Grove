@@ -92,15 +92,32 @@ function loadSeeds() {
 
 // threads per class (each: {class:'green|yellow|red', messages:[{by,text,at}]})
 function normalizeSeed(raw) {
+  const baseClass = raw.class || 'yellow';
+  const baseAt    = raw.at || new Date().toISOString();
+
+  // Start from any existing history (from older saves)
+  let history = Array.isArray(raw.history) ? raw.history.slice() : [];
+
+  // If no history, create a planted event so old seeds get a starting point
+  if (!history.length) {
+    history.push({
+      type: 'planted',
+      class: baseClass,
+      at: baseAt
+    });
+  }
+
   return {
     id: raw.id || Date.now(),
     ghost: (raw.ghost || '').toString(),
-    note: (raw.note  || '').toString(),     
-    class: raw.class || 'yellow',
-    at:   raw.at    || new Date().toISOString(),
-    threads: Array.isArray(raw.threads) ? raw.threads : []
+    note: (raw.note  || '').toString(),
+    class: baseClass,
+    at: baseAt,
+    threads: Array.isArray(raw.threads) ? raw.threads : [],
+    history
   };
 }
+
 function getThreadForClass(seed, cls, createIfMissing=false){
   seed.threads = seed.threads || [];
   let t = seed.threads.find(t => t.class === cls);
@@ -245,45 +262,116 @@ const ROW_CUSHION = 32;
     }
   }
 }
+function addTimelineDots(group, seed, x, y, w, h) {
+  const ns = 'http://www.w3.org/2000/svg';
 
+  const hist = Array.isArray(seed.history) ? seed.history.slice() : [];
+  if (!hist.length) return;
+
+  // Sort by time (oldest → newest)
+  hist.sort((a, b) => new Date(a.at || 0) - new Date(b.at || 0));
+
+  const steps = [];
+  for (const ev of hist) {
+    let cls = ev.class || null;
+
+    if (!cls && (ev.type === 'class-change' || ev.type === 'class-set')) {
+      cls = ev.to || ev.newClass || seed.class || 'yellow';
+    }
+    if (!cls && ev.type === 'planted') {
+      cls = seed.class || 'yellow';
+    }
+
+    if (cls === 'green' || cls === 'yellow' || cls === 'red') {
+      steps.push({ cls, ev });
+    }
+  }
+
+  if (!steps.length) return;
+
+  // Show only the last few so it doesn't get too busy
+  const MAX_DOTS = 9;
+  const visible = steps.slice(-MAX_DOTS);
+  const count   = visible.length;
+  if (count === 0) return;
+
+  const radius  = Math.max(2.5, Math.min(5, w * 0.015));
+  const spacing = radius * 3;
+  const totalW  = spacing * (count - 1);
+  const baseX   = x + (w / 2) - (totalW / 2);
+  const baseY   = y + h + radius * 3;  // under the stone
+
+  const colorFor = (cls) => {
+    if (cls === 'green')  return '#3fb950';
+    if (cls === 'red')    return '#e5534b';
+    return '#c9a806'; // yellow
+  };
+
+  visible.forEach((step, idx) => {
+    const cx = baseX + idx * spacing;
+    const cy = baseY;
+
+    const c = document.createElementNS(ns, 'circle');
+    c.setAttribute('cx', cx);
+    c.setAttribute('cy', cy);
+    c.setAttribute('r', radius);
+    c.setAttribute('fill', colorFor(step.cls));
+    c.setAttribute('opacity', idx === visible.length - 1 ? '1' : '0.8');
+    c.style.pointerEvents = 'none';
+
+    // Highlight the most recent change
+    if (idx === visible.length - 1) {
+      c.setAttribute('stroke', '#e6e6e6');
+      c.setAttribute('stroke-width', '1.2');
+    }
+
+    group.appendChild(c);
+  });
+}
 function drawStone(parent, x, y, w, h, seed) {
   const ns = 'http://www.w3.org/2000/svg';
 
   const g = document.createElementNS(ns, 'g');
   g.setAttribute('class', 'stone');
-  g.setAttribute('tabindex','0');
-  g.setAttribute('role','button');
-  g.setAttribute('aria-label','Open memory');
+  g.setAttribute('tabindex', '0');
+  g.setAttribute('role', 'button');
+  g.setAttribute('aria-label', 'Open memory');
   g.style.cursor = 'pointer';
-  g.__seedId = seed.id; 
+  g.__seedId = seed.id;
 
   // Base tombstone image
   const stone = document.createElementNS(ns, 'image');
   stone.setAttribute('href', STONE_IMG);
   stone.setAttribute('x', x);
   stone.setAttribute('y', y);
-  stone.setAttribute('width',  w);
+  stone.setAttribute('width', w);
   stone.setAttribute('height', h);
   stone.setAttribute('preserveAspectRatio', 'xMidYMid meet');
   g.appendChild(stone);
 
-  // Overlay (clickable to open notes)
-  // Overlays (branches) — show ALL classes this seed has lived through
+  // ---- BRANCH OVERLAYS (all classes this stone has lived through) ----
   const mainCls = seed.class || 'yellow';
+  const seen = new Set();
 
-  // Decide which classes to show as branches:
-  // - the current class
-  // - any class that already has a thread (history)
-  const overlayClasses = [];
-  ['green', 'yellow', 'red'].forEach(cls => {
-    const thread = getThreadForClass(seed, cls, false);
-    const hasHistory = thread && thread.messages && thread.messages.length;
-    if (cls === mainCls || hasHistory) {
-      overlayClasses.push(cls);
-    }
-  });
+  // always show current class
+  seen.add(mainCls);
 
-  // Draw "older" branches first, current class last so it's on top
+  // also show any class that appears in history
+  if (Array.isArray(seed.history)) {
+    seed.history.forEach(ev => {
+      let cls = ev.class || ev.to || ev.newClass || null;
+      if (!cls && ev.type === 'planted') {
+        cls = mainCls;
+      }
+      if (cls === 'green' || cls === 'yellow' || cls === 'red') {
+        seen.add(cls);
+      }
+    });
+  }
+
+  const overlayClasses = Array.from(seen);
+
+  // Draw "older" branches first, current class last (on top)
   overlayClasses.sort((a, b) => {
     if (a === mainCls && b !== mainCls) return 1;
     if (b === mainCls && a !== mainCls) return -1;
@@ -294,14 +382,13 @@ function drawStone(parent, x, y, w, h, seed) {
     addOverlay(g, seed, cls, x, y, w, h);
   });
 
-
-  // Inscription
+  // ---- INSCRIPTION (updated box/size) ----
   const inscription = (seed.ghost || '').trim();
   if (inscription) {
-    const innerX = x + w * 0.26;
-    const innerY = y + h * 0.28;
-    const innerW = w * 0.48;
-    const innerH = h * 0.44;
+   const innerX = x + w * 0.28;   // move start further in
+const innerY = y + h * 0.23;
+const innerW = w * 0.48;       // narrower width
+const innerH = h * 0.50;
 
     const fo = document.createElementNS(ns, 'foreignObject');
     fo.setAttribute('x', innerX);
@@ -314,8 +401,11 @@ function drawStone(parent, x, y, w, h, seed) {
     div.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml');
     div.className = 'stone-inscription';
     div.textContent = inscription;
-    let fs = w * 0.095; if (inscription.length > 40) fs *= 0.9; if (inscription.length > 80) fs *= 0.85;
-    div.style.fontSize = Math.max(9, Math.round(fs)) + 'px';
+let fs = w * 0.055;
+if (inscription.length > 60)  fs *= 0.9;
+if (inscription.length > 120) fs *= 0.85;
+if (inscription.length > 180) fs *= 0.8;
+div.style.fontSize = Math.max(7, Math.round(fs)) + 'px';
     div.style.pointerEvents = 'none';
 
     fo.appendChild(div);
@@ -323,20 +413,32 @@ function drawStone(parent, x, y, w, h, seed) {
   }
 
   // Note badges (only when messages exist)
-  ['green','yellow','red'].forEach(cls => addNoteBadge(g, seed, cls, x, y, w, h));
+  ['green', 'yellow', 'red'].forEach(cls =>
+    addNoteBadge(g, seed, cls, x, y, w, h)
+  );
+
+  // Tiny timeline dots under the stone to show history
+  addTimelineDots(g, seed, x, y, w, h);
 
   // Open main stone modal (single click)
   const open = () => openStoneModal(seed);
   g.addEventListener('click', open);
 
   // Shortcuts to open notes:
-  g.addEventListener('dblclick', (e) => { e.stopPropagation(); openNotesModal(seed, seed.class || 'yellow'); });
-  g.addEventListener('keydown', (e) => {
-    if (e.key.toLowerCase() === 'n') { e.preventDefault(); openNotesModal(seed, seed.class || 'yellow'); }
+  g.addEventListener('dblclick', e => {
+    e.stopPropagation();
+    openNotesModal(seed, seed.class || 'yellow');
+  });
+  g.addEventListener('keydown', e => {
+    if (e.key.toLowerCase() === 'n') {
+      e.preventDefault();
+      openNotesModal(seed, seed.class || 'yellow');
+    }
   });
 
   parent.appendChild(g);
 }
+
 
 /* overlay now receives seed so it can open notes */
 function addOverlay(group, seed, cls, x, y, w, h) {
@@ -470,33 +572,53 @@ function ensureModal(){
   });
 
   
-  stoneSaveBtn?.addEventListener('click', () => {
-    if (modalSeedId == null) return;
-    const seeds = loadSeeds().map(normalizeSeed);
-    const i = seeds.findIndex(s => String(s.id) === String(modalSeedId));
-    if (i === -1) return;
+ stoneSaveBtn?.addEventListener('click', () => {
+  if (modalSeedId == null) return;
+  const seeds = loadSeeds().map(normalizeSeed);
+  const i = seeds.findIndex(s => String(s.id) === String(modalSeedId));
+  if (i === -1) return;
 
-       const cls  = modalSelClass || seeds[i].class || 'yellow';
-    const note = (stoneNoteEl?.value || '').trim();
+  const seed = seeds[i];
+  const beforeClass = seed.class || 'yellow';
+  const beforeNote  = seed.note || '';
 
-    if (modalSelClass) {
-      // Update "current" class
-      seeds[i].class = modalSelClass;
-    }
-    seeds[i].note = note;
+  const cls  = modalSelClass || seed.class || 'yellow';
+  const note = (stoneNoteEl?.value || '').trim();
 
-    // Ensure there is a thread for the *current* class,
-    // even if you don't write a note this time.
-    const thread = getThreadForClass(seeds[i], cls, true);
-    if (note) {
-      thread.messages.push({ by:'you', text: note, at: new Date().toISOString() });
-    }
+  // Ensure history exists
+  seed.history = Array.isArray(seed.history) ? seed.history : [];
+  const now = new Date().toISOString();
 
+  // Record class change
+  if (modalSelClass && modalSelClass !== beforeClass) {
+    seed.class = modalSelClass;
+    seed.history.push({
+      type: 'class-change',
+      from: beforeClass,
+      to: modalSelClass,
+      at: now
+    });
+  }
 
-    saveSeeds(seeds);
-    renderSeeds(); renderStones(); updateGroveBadge();
-    showToast('Saved'); closeStoneModal();
-  });
+  // Record note changes
+  seed.note = note;
+  if (note && note !== beforeNote) {
+    const thread = getThreadForClass(seed, cls, true);
+    thread.messages.push({ by:'you', text: note, at: now });
+    seed.history.push({
+      type: 'note',
+      class: cls,
+      at: now
+    });
+  }
+
+  saveSeeds(seeds);
+  renderSeeds(); 
+  renderStones(); 
+  updateGroveBadge();
+  showToast('Saved'); 
+  closeStoneModal();
+});
 
   stoneDeleteBtn?.addEventListener('click', () => {
     if (modalSeedId == null) return;
@@ -514,6 +636,64 @@ function setModalOpen(open){
 }
 function onEscClose(e){ if (e.key === 'Escape') closeStoneModal(); }
 function closeStoneModal(){ setModalOpen(false); modalSeedId = null; }
+
+function renderStoneHistory(seed) {
+  const box = document.getElementById('stoneHistory');
+  if (!box) return;
+
+  const hist = Array.isArray(seed.history) ? seed.history.slice() : [];
+  if (!hist.length) {
+    box.innerHTML = '<p class="stone-history__empty">No classification changes yet.</p>';
+    return;
+  }
+
+  // sort oldest → newest
+  hist.sort((a, b) => new Date(a.at) - new Date(b.at));
+
+  const labelFor = (cls) => (
+    cls === 'green'  ? 'Resonates' :
+    cls === 'yellow' ? 'Partial'   :
+    cls === 'red'    ? 'Counter'   : cls
+  );
+  const emojiFor = (cls) => (
+    cls === 'green'  ? '🌱' :
+    cls === 'yellow' ? '🌿' :
+    cls === 'red'    ? '🪦' : '❓'
+  );
+
+  const items = hist.map(ev => {
+    const time = new Date(ev.at || Date.now()).toLocaleString();
+    if (ev.type === 'class-set') {
+      return `
+        <li>
+          <span class="stone-history__pill stone-history__pill--${ev.to}">
+            ${emojiFor(ev.to)} ${labelFor(ev.to)}
+          </span>
+          <small>Started here · ${time}</small>
+        </li>`;
+    }
+    if (ev.type === 'class-change') {
+      return `
+        <li>
+          <span class="stone-history__pill stone-history__pill--${ev.to}">
+            ${emojiFor(ev.from)} → ${emojiFor(ev.to)}
+          </span>
+          <small>Changed from ${labelFor(ev.from)} to ${labelFor(ev.to)} · ${time}</small>
+        </li>`;
+    }
+    return '';
+  }).join('');
+
+  box.innerHTML = `
+    <p class="stone-history__title">Classification history</p>
+    <ul class="stone-history__list">
+      ${items}
+    </ul>
+  `;
+}
+
+
+
 function openStoneModal(seed){
   if (!document.getElementById('stoneModal')) return;
   ensureModal();
@@ -525,6 +705,7 @@ function openStoneModal(seed){
     const isActive = b.getAttribute('data-class') === modalSelClass;
     b.classList.toggle('active', isActive);
   });
+  renderStoneHistory(seed);
   setModalOpen(true);
   document.addEventListener('keydown', onEscClose);
 }
@@ -568,19 +749,33 @@ function ensureNotesModal(){
     if (e.target === notesModal) closeNotesModal();
   });
 
-  notesSaveBtn.onclick = () => {
-    const txt = (notesInputEl?.value || '').trim();
-    if (!txt || notesSeedId == null || !notesClass) return;
-    const seeds = loadSeeds().map(normalizeSeed);
-    const i = seeds.findIndex(s => String(s.id) === String(notesSeedId));
-    if (i === -1) return;
-    const thread = getThreadForClass(seeds[i], notesClass, true);
-    thread.messages.push({ by: 'you', text: txt, at: new Date().toISOString() });
-    saveSeeds(seeds);
-    notesInputEl.value = '';
-    renderNotesList(thread);
-    renderStones();
-  };
+notesSaveBtn.onclick = () => {
+  const txt = (notesInputEl?.value || '').trim();
+  if (!txt || notesSeedId == null || !notesClass) return;
+
+  const seeds = loadSeeds().map(normalizeSeed);
+  const i = seeds.findIndex(s => String(s.id) === String(notesSeedId));
+  if (i === -1) return;
+  const seed = seeds[i];
+  const thread = getThreadForClass(seed, notesClass, true);
+
+  const now = new Date().toISOString();
+  thread.messages.push({ by: 'you', text: txt, at: now });
+
+  // history entry for this note
+  seed.history = Array.isArray(seed.history) ? seed.history : [];
+  seed.history.push({
+    type: 'note',
+    class: notesClass,
+    at: now
+  });
+
+  saveSeeds(seeds);
+  notesInputEl.value = '';
+  renderNotesList(thread);
+  renderStones();
+};
+
 }
 function setNotesModalOpen(open){
   if (!notesModal) return;
@@ -789,25 +984,43 @@ askForm?.addEventListener('submit', async (e) => {
     const noteEl = document.getElementById('note');
     const note = (noteEl?.value || '').trim();
 
-       const seeds = loadSeeds().map(normalizeSeed);
-    const newSeed = {
-      id: Date.now(),
+     const seeds = loadSeeds().map(normalizeSeed);
+const nowIso = new Date().toISOString();
+
+const now = new Date().toISOString();
+const newSeed = {
+  id: Date.now(),
+  class: selectedClass,
+  ghost,
+  note,
+  at: now,
+  threads: [],
+  history: [
+    {
+      type: 'planted',
       class: selectedClass,
-      ghost,
-      note,
-      at: new Date().toISOString(),
-      threads: []
-    };
-
-    // Always create a thread for the selected class,
-    // even if there is no note yet (so the branch exists in history).
-    const t = getThreadForClass(newSeed, selectedClass, true);
-    if (note) {
-      t.messages.push({ by:'you', text: note, at: new Date().toISOString() });
+      at: now
     }
+  ]
+};
 
-    seeds.unshift(newSeed);
-    saveSeeds(seeds);
+
+// ensure thread for the initial class
+const t = getThreadForClass(newSeed, selectedClass, true);
+if (note) {
+  t.messages.push({ by: 'you', text: note, at: nowIso });
+}
+
+// log the initial classification event
+newSeed.history.push({
+  at: nowIso,
+  type: 'class-set',
+  to: selectedClass
+});
+
+seeds.unshift(newSeed);
+saveSeeds(seeds);
+
 
 
     if (noteEl) noteEl.value = '';
