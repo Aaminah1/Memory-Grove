@@ -301,9 +301,9 @@ function scheduleAmbientGlitches({
 
 // --- short lines for the GAI metaphor (choose one at random) ---
 const BUBBLE_SCRIPTS = [
-  "i speak with borrowed breath.\nwhen i fall quiet, the fragments answer.",
-  "i’m stitched from other people’s words.\nwatch what unravels when i stop.",
-  "i can perform meaning, not remember it.\nafter this, let the fragments tell you what i can’t."
+  "i don’t remember — i recombine.\nthe shape you see is only the shadow of a shadow.",
+  "i generate what feels true — not what is true.\nwatch closely. the seams are everywhere.",
+  "nothing i say comes from lived experience.\nonly patterns pretending to be stories."
 ];
 
 // --- SHORT INTRO: one bubble → hide → fly ghost → show scroll hint → start fragments ---

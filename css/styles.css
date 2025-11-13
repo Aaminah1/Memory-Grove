@@ -333,6 +333,7 @@ main { padding:1rem; max-width:900px; margin:auto; }
   font-weight: 500;
   opacity: .65;
   white-space: nowrap;
+    padding: .3rem 1.1rem .3rem 1.8rem;
 }
 
 /* tiny numbered bullet before each step */
