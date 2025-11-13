@@ -268,7 +268,32 @@ function drawStone(parent, x, y, w, h, seed) {
   g.appendChild(stone);
 
   // Overlay (clickable to open notes)
-  addOverlay(g, seed, seed.class || 'yellow', x, y, w, h);
+  // Overlays (branches) — show ALL classes this seed has lived through
+  const mainCls = seed.class || 'yellow';
+
+  // Decide which classes to show as branches:
+  // - the current class
+  // - any class that already has a thread (history)
+  const overlayClasses = [];
+  ['green', 'yellow', 'red'].forEach(cls => {
+    const thread = getThreadForClass(seed, cls, false);
+    const hasHistory = thread && thread.messages && thread.messages.length;
+    if (cls === mainCls || hasHistory) {
+      overlayClasses.push(cls);
+    }
+  });
+
+  // Draw "older" branches first, current class last so it's on top
+  overlayClasses.sort((a, b) => {
+    if (a === mainCls && b !== mainCls) return 1;
+    if (b === mainCls && a !== mainCls) return -1;
+    return 0;
+  });
+
+  overlayClasses.forEach(cls => {
+    addOverlay(g, seed, cls, x, y, w, h);
+  });
+
 
   // Inscription
   const inscription = (seed.ghost || '').trim();
@@ -451,16 +476,22 @@ function ensureModal(){
     const i = seeds.findIndex(s => String(s.id) === String(modalSeedId));
     if (i === -1) return;
 
-    const cls  = modalSelClass || seeds[i].class || 'yellow';
+       const cls  = modalSelClass || seeds[i].class || 'yellow';
     const note = (stoneNoteEl?.value || '').trim();
 
-    if (modalSelClass) seeds[i].class = modalSelClass;
+    if (modalSelClass) {
+      // Update "current" class
+      seeds[i].class = modalSelClass;
+    }
     seeds[i].note = note;
 
+    // Ensure there is a thread for the *current* class,
+    // even if you don't write a note this time.
+    const thread = getThreadForClass(seeds[i], cls, true);
     if (note) {
-      const thread = getThreadForClass(seeds[i], cls, true);
       thread.messages.push({ by:'you', text: note, at: new Date().toISOString() });
     }
+
 
     saveSeeds(seeds);
     renderSeeds(); renderStones(); updateGroveBadge();
@@ -758,7 +789,7 @@ askForm?.addEventListener('submit', async (e) => {
     const noteEl = document.getElementById('note');
     const note = (noteEl?.value || '').trim();
 
-    const seeds = loadSeeds().map(normalizeSeed);
+       const seeds = loadSeeds().map(normalizeSeed);
     const newSeed = {
       id: Date.now(),
       class: selectedClass,
@@ -767,13 +798,17 @@ askForm?.addEventListener('submit', async (e) => {
       at: new Date().toISOString(),
       threads: []
     };
+
+    // Always create a thread for the selected class,
+    // even if there is no note yet (so the branch exists in history).
+    const t = getThreadForClass(newSeed, selectedClass, true);
     if (note) {
-      const t = { class: selectedClass, messages: [] };
       t.messages.push({ by:'you', text: note, at: new Date().toISOString() });
-      newSeed.threads.push(t);
     }
+
     seeds.unshift(newSeed);
     saveSeeds(seeds);
+
 
     if (noteEl) noteEl.value = '';
     selectedClass = null;

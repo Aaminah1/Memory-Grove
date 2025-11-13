@@ -292,11 +292,7 @@ position: absolute;
 .wordWrap.rgbWord::before{ color:#ff2a6d; transform:translate(6px,-3px) skewX(6deg) }
 .wordWrap.rgbWord::after { color:#2ad4ff; transform:translate(-6px,3px)  skewX(-6deg) }
 
-/* reduced motion */
-@media (prefers-reduced-motion: reduce){
-  #ghost .bubble{ transition-duration: 0.001ms !important; }
-  .wobble{ animation: none !important; }
-}
+
 
 
 /* ---------- Speech bubble (glass, readable, closer) ---------- */
